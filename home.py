@@ -46,6 +46,44 @@ else:
     else:
         st.warning("Please select a system dataset to proceed.")
 
+
+
+
+# 算法选择放在侧边栏
+with st.sidebar:
+    st.header("Choose Optimization Algorithm")
+    algorithms = ["PSO (Particle Swarm Optimization)", "GA (Genetic Algorithm)", "SA (Simulated Annealing)"]
+    selected_algorithm = st.selectbox("Select Optimization Algorithm", algorithms)
+
+    # 根据选择的算法动态显示相关参数设置
+    if selected_algorithm == "PSO (Particle Swarm Optimization)":
+        st.subheader("PSO Parameters")
+        max_iter = st.slider("Max Iterations", 1, 1000, 1)
+        w = st.slider("Inertia Weight (w)", 0.0, 1.0, 0.5)
+        c1 = st.slider("Cognitive Coefficient (c1)", 0.0, 4.0, 2.0)
+        c2 = st.slider("Social Coefficient (c2)", 0.0, 4.0, 2.0)
+        st.write(f"Note: c1 + c2 should equal 4.0. Current sum: {c1 + c2}")
+        lambda_1 = st.number_input("Lambda 1", value=1.0)
+        lambda_2 = st.number_input("Lambda 2", value=1.0)
+        lambda_3 = st.number_input("Lambda 3", value=1.0)
+        lambda_4 = st.number_input("Lambda 4", value=1.0)
+
+    elif selected_algorithm == "GA (Genetic Algorithm)":
+        st.subheader("GA Parameters")
+        population_size = st.slider("Population Size", 10, 500, 100)
+        mutation_rate = st.slider("Mutation Rate", 0.0, 1.0, 0.05)
+        crossover_rate = st.slider("Crossover Rate", 0.0, 1.0, 0.8)
+        generations = st.slider("Generations", 1, 1000, 100)
+
+    elif selected_algorithm == "SA (Simulated Annealing)":
+        st.subheader("SA Parameters")
+        initial_temperature = st.number_input("Initial Temperature", value=1000.0)
+        cooling_rate = st.slider("Cooling Rate", 0.0, 1.0, 0.9)
+        min_temperature = st.number_input("Minimum Temperature", value=0.1)
+        max_iterations_sa = st.slider("Max Iterations", 1, 1000, 100)
+
+
+
 # 如果 df 已经加载，进行堆垛优化分析
 if df is not None:
     # 参数配置（假设数据集结构一致）
