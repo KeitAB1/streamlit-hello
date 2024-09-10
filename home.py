@@ -354,8 +354,6 @@ if df is not None:
 
     st.success(f"Optimization complete. Results saved to {output_file_plates_with_batch}")
 
-    # 计算 Stacking Height
-    st.write("Calculating Stacking Height...")
 
     heights_dict = {}
     df['Stacking Start Height'] = 0.0
@@ -372,82 +370,9 @@ if df is not None:
         heights_dict[key] = df.loc[i, 'Stacking Height']
 
     # 保存计算后的数据
-    final_stack_distribution_path = os.path.join(output_dir, "final_stack_distribution_plates.csv")
+    final_stack_distribution_path = os.path.join( "result/final_stack_distribution/final_stack_distribution_plates.csv")
     df.to_csv(final_stack_distribution_path, index=False)
-    st.success(f"Final stacking heights saved to {final_stack_distribution_path}")
 
-    # 绘制结果的3D图和高度分布条形图
-    area_positions = {
-        0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],
-        1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],
-        2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],
-        3: [(0, 0), (0, 1), (1, 0), (1, 1)],
-        4: [(0, 0), (0, 1), (1, 0), (1, 1)],
-        5: [(0, 0), (0, 1), (1, 0), (1, 1)]
-    }
-
-    for area in range(6):
-        fig = plt.figure(figsize=(12, 6))
-        ax = fig.add_subplot(121, projection='3d')
-
-        area_data = df[df['Final Area'] == area]
-        x = area_data['Final X']
-        y = area_data['Final Y']
-        z = area_data['Stacking Height']
-
-        ax.scatter(x, y, z, c='r', marker='o')
-        ax.set_xlabel('X Position')
-        ax.set_ylabel('Y Position')
-        ax.set_zlabel('Stacking Height')
-        ax.set_title(f'3D Stack Distribution in Area {area}')
-
-        ax2 = fig.add_subplot(122)
-        bar_width = 0.3
-        positions = area_positions[area]
-        height_data = [heights_dict.get((area, pos[0], pos[1]), 0) for pos in positions]
-        ax2.bar(range(1, len(height_data) + 1), height_data, width=bar_width, color='skyblue')
-        ax2.set_xlabel('Position')
-        ax2.set_ylabel('Stacking Height')
-        ax2.set_title(f'Height Distribution in Area {area}')
-        ax2.set_xticks(range(1, len(height_data) + 1))
-        ax2.set_xticklabels([f'{pos[0]}_{pos[1]}' for pos in positions])
-
-        plt.tight_layout()
-
-        # 在Streamlit中显示图像
-        st.pyplot(fig)
-
-    st.write("3D plots and height distributions generated and displayed.")
-
-    # 初始化总图数据
-    all_height_data = []
-    all_positions = []
-
-    # 遍历每个库区
-    for area, positions in area_positions.items():
-        for pos in positions:
-            height = heights_dict.get((area, pos[0], pos[1]), 0)  # 获取该库区该位置的高度
-            all_height_data.append(height)
-            all_positions.append(f'Area {area} - {pos[0]}_{pos[1]}')
-
-    # 创建总高度条形图
-    fig, ax = plt.subplots(figsize=(12, 6))
-    ax.bar(range(len(all_height_data)), all_height_data, width=0.5, color='skyblue')
-
-    # 设置图表标签
-    ax.set_xlabel('Stack Position')
-    ax.set_ylabel('Stacking Height')
-    ax.set_title('Final Stack Distribution by Area')
-
-    # 设置 x 轴刻度和标签
-    ax.set_xticks(range(len(all_positions)))
-    ax.set_xticklabels(all_positions, rotation=90)
-
-    # 保存总图
-    output_image_path = os.path.join(output_dir, 'final_stack_distribution_all_areas.png')
-    plt.tight_layout()
-    plt.savefig(output_image_path)
-    plt.close()
-
-    st.success(f"Final stack distribution image saved to {output_image_path}")
-    st.image(output_image_path)
+    # 设置 session state，允许可视化
+    st.session_state['optimization_done'] = True
+    st.success("Stacking optimization completed. You can now visualize the results.")
