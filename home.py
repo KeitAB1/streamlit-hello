@@ -2,30 +2,53 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 import os
 
 # 全局变量用于存储结果
 heights = None
 
 # 创建用于保存图像的目录
-output_dir = "stack_distribution_plots"
+output_dir = "stack_distribution_plots/final_stack_distribution"
 os.makedirs(output_dir, exist_ok=True)
 
 st.title("Steel Plate Stacking Optimization")
 
-# 文件上传功能
-uploaded_file = st.file_uploader("Upload your steel plate dataset (CSV)", type=["csv"])
+# 获取 data 文件夹下的所有 CSV 文件
+data_dir = "data"
+available_datasets = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
 
-if uploaded_file is not None:
-    # 读取上传的文件
-    df = pd.read_csv(uploaded_file)
+# 选择数据集的方式
+data_choice = st.selectbox("Choose dataset", ("Use system dataset", "Upload your own dataset"))
 
-    # 显示上传的数据集
-    st.write("Uploaded dataset:")
-    st.write(df.head())
+# 初始化 df 为 None
+df = None
 
-    # 参数配置（这里假设用户上传了一个与原先结构一致的csv文件）
+# 如果用户选择上传数据集
+if data_choice == "Upload your own dataset":
+    uploaded_file = st.file_uploader("Upload your steel plate dataset (CSV)", type=["csv"])
+    if uploaded_file is not None:
+        df = pd.read_csv(uploaded_file)
+        st.write("Uploaded dataset:")
+        st.write(df.head())
+    else:
+        st.warning("Please upload a dataset to proceed.")
+
+# 如果用户选择使用系统自带的数据集
+else:
+    # 列出可用的数据集供用户选择，初始选择为空
+    selected_dataset = st.selectbox("Select a system dataset", [""] + available_datasets)
+
+    if selected_dataset and selected_dataset != "":
+        system_dataset_path = os.path.join(data_dir, selected_dataset)
+        df = pd.read_csv(system_dataset_path)
+        st.write(f"Using system dataset: {selected_dataset}")
+        st.write(df.head())
+    else:
+        st.warning("Please select a system dataset to proceed.")
+
+# 如果 df 已经加载，进行堆垛优化分析
+if df is not None:
+    # 参数配置（假设数据集结构一致）
     plates = df[['Length', 'Width', 'Thickness', 'Material_Code', 'Batch', 'Entry Time', 'Delivery Time']].values
     plate_areas = plates[:, 0] * plates[:, 1]
     num_plates = len(plates)
@@ -326,7 +349,7 @@ if uploaded_file is not None:
     df['Final Y'] = final_y
 
     # 保存最终堆垛结果
-    output_file_plates_with_batch = r'result/final_stack_distribution.csv'
+    output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
     df.to_csv(output_file_plates_with_batch, index=False)
 
     st.success(f"Optimization complete. Results saved to {output_file_plates_with_batch}")
