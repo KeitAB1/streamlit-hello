@@ -43,79 +43,81 @@ else:
             stacking_height = row['Stacking Height']
             height_dict[area][(x, y)] = stacking_height
 
-        # 为每个库区生成一个3D图
-        for area in range(6):
-            area_data = df[df['Final Area'] == area]
+        # 提供库区选择的下拉框
+        selected_area = st.selectbox("Select Area to visualize", list(area_layouts.keys()))
 
-            # 生成3D散点图
-            fig_3d = go.Figure(data=[go.Scatter3d(
-                x=area_data['Final X'],
-                y=area_data['Final Y'],
-                z=area_data['Stacking Height'],
-                mode='markers',
-                marker=dict(size=5, color=area_data['Stacking Height'], colorscale='Viridis', opacity=0.8)
-            )])
+        # 为选定的库区生成3D图
+        area_data = df[df['Final Area'] == selected_area]
 
-            fig_3d.update_layout(
-                scene=dict(
-                    xaxis_title='X Position',
-                    yaxis_title='Y Position',
-                    zaxis_title='Stacking Height'
-                ),
-                title=f'3D Stack Distribution in Area {area}',
-                margin=dict(l=0, r=0, b=0, t=40)
+        # 生成3D散点图
+        fig_3d = go.Figure(data=[go.Scatter3d(
+            x=area_data['Final X'],
+            y=area_data['Final Y'],
+            z=area_data['Stacking Height'],
+            mode='markers',
+            marker=dict(size=5, color=area_data['Stacking Height'], colorscale='Viridis', opacity=0.8)
+        )])
+
+        fig_3d.update_layout(
+            scene=dict(
+                xaxis_title='X Position',
+                yaxis_title='Y Position',
+                zaxis_title='Stacking Height'
+            ),
+            title=f'3D Stack Distribution in Area {selected_area}',
+            margin=dict(l=0, r=0, b=0, t=40)
+        )
+
+        st.plotly_chart(fig_3d, use_container_width=True)
+
+        # 提供图表类型的选择
+        chart_type = st.selectbox(f"Select chart type for Area {selected_area}", ["Combo", "Bar", "Line", "Area"])
+
+        # 获取垛位的高度数据
+        positions = area_layouts[selected_area]
+        height_data = [height_dict[selected_area][pos] for pos in positions]
+        position_labels = [f'{pos[0]}_{pos[1]}' for pos in positions]
+
+        # 根据选择的图表类型生成图表
+        if chart_type == "Bar":
+            fig_bar = go.Figure([go.Bar(x=position_labels, y=height_data, width=0.3)])
+            fig_bar.update_layout(
+                title=f'Height Distribution in Area {selected_area} (Bar Chart)',
+                xaxis_title='Position',
+                yaxis_title='Stacking Height'
             )
+            st.plotly_chart(fig_bar, use_container_width=True)
 
-            st.plotly_chart(fig_3d, use_container_width=True)
+        elif chart_type == "Line":
+            fig_line = go.Figure([go.Scatter(x=position_labels, y=height_data, mode='lines')])
+            fig_line.update_layout(
+                title=f'Height Distribution in Area {selected_area} (Line Chart)',
+                xaxis_title='Position',
+                yaxis_title='Stacking Height'
+            )
+            st.plotly_chart(fig_line, use_container_width=True)
 
-            # 提供图表类型的选择
-            chart_type = st.selectbox(f"Select chart type for Area {area}", ["Combo", "Bar", "Line", "Area"])
+        elif chart_type == "Area":
+            fig_area = go.Figure([go.Scatter(x=position_labels, y=height_data, fill='tozeroy')])
+            fig_area.update_layout(
+                title=f'Height Distribution in Area {selected_area} (Area Chart)',
+                xaxis_title='Position',
+                yaxis_title='Stacking Height'
+            )
+            st.plotly_chart(fig_area, use_container_width=True)
 
-            # 获取垛位的高度数据
-            positions = area_layouts[area]
-            height_data = [height_dict[area][pos] for pos in positions]
-            position_labels = [f'{pos[0]}_{pos[1]}' for pos in positions]
+        else:  # Combo 图，包含柱状图和线条图
+            fig_combo = go.Figure()
+            fig_combo.add_trace(go.Bar(x=position_labels, y=height_data, width=0.3, name='Bar'))
+            fig_combo.add_trace(go.Scatter(x=position_labels, y=height_data, mode='lines+markers', name='Line'))
+            fig_combo.update_layout(
+                title=f'Height Distribution in Area {selected_area} (Combo Chart)',
+                xaxis_title='Position',
+                yaxis_title='Stacking Height'
+            )
+            st.plotly_chart(fig_combo, use_container_width=True)
 
-            # 根据选择的图表类型生成图表
-            if chart_type == "Bar":
-                fig_bar = go.Figure([go.Bar(x=position_labels, y=height_data, width=0.3)])
-                fig_bar.update_layout(
-                    title=f'Height Distribution in Area {area} (Bar Chart)',
-                    xaxis_title='Position',
-                    yaxis_title='Stacking Height'
-                )
-                st.plotly_chart(fig_bar, use_container_width=True)
-
-            elif chart_type == "Line":
-                fig_line = go.Figure([go.Scatter(x=position_labels, y=height_data, mode='lines')])
-                fig_line.update_layout(
-                    title=f'Height Distribution in Area {area} (Line Chart)',
-                    xaxis_title='Position',
-                    yaxis_title='Stacking Height'
-                )
-                st.plotly_chart(fig_line, use_container_width=True)
-
-            elif chart_type == "Area":
-                fig_area = go.Figure([go.Scatter(x=position_labels, y=height_data, fill='tozeroy')])
-                fig_area.update_layout(
-                    title=f'Height Distribution in Area {area} (Area Chart)',
-                    xaxis_title='Position',
-                    yaxis_title='Stacking Height'
-                )
-                st.plotly_chart(fig_area, use_container_width=True)
-
-            else:  # Combo 图，包含柱状图和线条图
-                fig_combo = go.Figure()
-                fig_combo.add_trace(go.Bar(x=position_labels, y=height_data, width=0.3, name='Bar'))
-                fig_combo.add_trace(go.Scatter(x=position_labels, y=height_data, mode='lines+markers', name='Line'))
-                fig_combo.update_layout(
-                    title=f'Height Distribution in Area {area} (Combo Chart)',
-                    xaxis_title='Position',
-                    yaxis_title='Stacking Height'
-                )
-                st.plotly_chart(fig_combo, use_container_width=True)
-
-        st.success("3D plots and height distributions generated and displayed successfully.")
+        st.success(f"3D plot and height distribution for Area {selected_area} generated and displayed successfully.")
 
         # 生成包含所有库区堆垛高度分布的总图
         st.subheader("Final Stack Distribution by Area")
