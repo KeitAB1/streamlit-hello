@@ -60,7 +60,7 @@ with st.sidebar:
     # 根据选择的算法动态显示相关参数设置
     if selected_algorithm == "PSO (Particle Swarm Optimization)":
         st.subheader("PSO Parameters")
-        max_iter = st.slider("Max Iterations", 1, 1000, 1)
+        max_iter = st.number_input("Max Iterations", 1, 1000, 1)
         w = st.slider("Inertia Weight (w)", 0.0, 1.0, 0.5)
         c1 = st.slider("Cognitive Coefficient (c1)", 0.0, 4.0, 2.0)
         c2 = st.slider("Social Coefficient (c2)", 0.0, 4.0, 2.0)
@@ -72,7 +72,7 @@ with st.sidebar:
 
     elif selected_algorithm == "GA (Genetic Algorithm)":
         st.subheader("GA Parameters")
-        population_size = st.slider("Population Size", 10, 500, 100)
+        population_size = st.number_input("Population Size", 10, 500, 100)
         mutation_rate = st.slider("Mutation Rate", 0.0, 1.0, 0.05)
         crossover_rate = st.slider("Crossover Rate", 0.0, 1.0, 0.8)
         generations = st.slider("Generations", 1, 1000, 100)
@@ -82,7 +82,7 @@ with st.sidebar:
         initial_temperature = st.number_input("Initial Temperature", value=1000.0)
         cooling_rate = st.slider("Cooling Rate", 0.0, 1.0, 0.9)
         min_temperature = st.number_input("Minimum Temperature", value=0.1)
-        max_iterations_sa = st.slider("Max Iterations", 1, 1000, 100)
+        max_iterations_sa = st.number_input("Max Iterations", 1, 1000, 100)
 
 # 动态显示收敛曲线的占位符
 convergence_plot_placeholder = st.empty()
@@ -384,7 +384,7 @@ if df is not None:
             plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
             plt.xlabel('Iterations')
             plt.ylabel('Best Score')
-            plt.title(f'Convergence Curve - Iteration {current_iteration}')
+            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.gbest_score}')
             plt.legend()
 
             # 使用 Streamlit 的空占位符更新图表
@@ -399,7 +399,7 @@ if df is not None:
 
 
 
-            # 初始化并运行PSO_with_Batch
+    # 初始化并运行PSO_with_Batch
     pso_with_batch = PSO_with_Batch(num_particles=30, num_positions=len(Dki),
                                     w=w, c1=c1, c2=c2, max_iter=max_iter,
                                     lambda_1=lambda_1, lambda_2=lambda_2,
@@ -426,7 +426,7 @@ if df is not None:
     output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
     df.to_csv(output_file_plates_with_batch, index=False)
 
-    st.success(f"Optimization complete. Results saved to {output_file_plates_with_batch}")
+    # st.success(f"Optimization complete. Results saved to {output_file_plates_with_batch}")
 
     heights_dict = {}
     df['Stacking Start Height'] = 0.0
@@ -449,4 +449,97 @@ if df is not None:
 
     # 设置 session state，允许可视化
     st.session_state['optimization_done'] = True
-    st.success("Stacking optimization completed. You can now visualize the results.")
+    st.success("Stacking optimization completed！You can now visualize the results.")
+
+    # 生成堆垛结果的统计表
+    st.write("### Final Stack Distribution Table")
+
+    # 读取 final_stack_distribution_plates.csv 文件
+    df = pd.read_csv(final_stack_distribution_path)
+
+    # 初始化用于统计的字典
+    height_dict = {}
+    plate_count_dict = {}
+
+    layout = {
+        0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第0库区的垛位
+        1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第1库区
+        2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],  # 第2库区
+        3: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第3库区
+        4: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第4库区
+        5: [(0, 0), (0, 1), (1, 0), (1, 1)]  # 第5库区
+    }
+
+    # 初始化每个库区的垛位高度和钢板计数
+    for area in layout.keys():
+        for pos in layout[area]:
+            height_dict[(area, pos[0], pos[1])] = 0.0
+            plate_count_dict[(area, pos[0], pos[1])] = 0
+
+
+    # 检查库区和垛位是否在layout中
+    def is_valid_position(area, x, y):
+        return (area in layout) and ((int(x), int(y)) in layout[area])
+
+
+    # 使用已有的 Stacking Height，而不是累加 Thickness
+    for index, row in df.iterrows():
+        area = row['Final Area']
+        x = row['Final X']
+        y = row['Final Y']
+        stacking_height = row['Stacking Height']  # 使用已计算的堆垛高度
+
+        # 确保 X 和 Y 为整数
+        x = int(x)
+        y = int(y)
+
+        if is_valid_position(area, x, y):
+            # 更新该垛位的堆垛高度
+            height_dict[(area, x, y)] = stacking_height
+
+            # 更新该垛位的钢板数量
+            plate_count_dict[(area, x, y)] += 1
+        else:
+            print(f"Warning: Invalid position ({area}, {x}, {y}) in row {index}")
+
+    # 初始化列表用于存储最终结果
+    results = []
+
+    # 填充每个库区的垛位高度和钢板数量
+    for area, positions in layout.items():
+        total_plates = 0
+        heights = []
+
+        for pos in positions:
+            height = height_dict[(area, pos[0], pos[1])]
+            heights.append(height)
+            total_plates += plate_count_dict[(area, pos[0], pos[1])]
+
+        # 计算平均高度
+        average_height = np.mean(heights)
+
+        # 记录每个库区的堆垛信息
+        result_entry = {
+            'Area': area,
+            'Total Plates': total_plates,
+            'Average Height': average_height
+        }
+
+        # 记录每个垛位的高度
+        for i, pos in enumerate(positions):
+            result_entry[f'Position {i + 1}'] = height_dict[(area, pos[0], pos[1])]
+
+        results.append(result_entry)
+
+        # 将结果转换为 DataFrame
+    result_df = pd.DataFrame(results)
+
+    # 显示统计表
+    st.write("Stacking Distribution Statistics Table:")
+    st.dataframe(result_df)
+
+    # 保存结果到 CSV 文件
+    output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height.csv'
+    result_df.to_csv(output_file_heights, index=False)
+
+    # st.success(f"Stacking statistics saved to {output_file_heights}")
