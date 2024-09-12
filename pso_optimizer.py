@@ -1,33 +1,41 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import os
+from home import minimize_stack_movements_and_turnover, minimize_outbound_energy_time_with_batch, \
+    maximize_inventory_balance_v2, maximize_space_utilization_v3
 
-# 定义粒子类
+
+# 定义 Particle 类
 class Particle:
-    def __init__(self, num_positions):
-        self.position = np.random.randint(0, num_positions, size=num_plates)  # 随机初始化位置
+    def __init__(self, num_positions, num_plates):
+        # 随机初始化粒子的位置
+        self.position = np.random.randint(0, num_positions, size=num_plates)
+        # 初始化粒子的速度为 0
         self.velocity = np.zeros(num_plates)
+        # 记录历史最佳位置
         self.best_position = self.position.copy()
+        # 初始化最佳得分为正无穷
         self.best_score = np.inf
 
     def update_velocity(self, gbest_position, w, c1, c2):
-        r1 = np.random.rand(num_plates)
-        r2 = np.random.rand(num_plates)
+        # 随机生成两个系数用于 PSO 更新
+        r1 = np.random.rand(len(self.position))
+        r2 = np.random.rand(len(self.position))
+        # 计算认知部分
         cognitive = c1 * r1 * (self.best_position - self.position)
+        # 计算社会部分
         social = c2 * r2 * (gbest_position - self.position)
+        # 更新速度
         self.velocity = w * self.velocity + cognitive + social
 
     def update_position(self, num_positions):
+        # 更新位置，确保位置在合法范围内
         self.position = np.clip(self.position + self.velocity, 0, num_positions - 1).astype(int)
 
 
-
-# 定义PSO优化算法
+# 定义 PSO_with_Batch 类
 class PSO_with_Batch:
-    def __init__(self, num_particles, num_positions, num_plates, w, c1, c2, max_iter, lambda_1, lambda_2, lambda_3, lambda_4,
-                 minimize_stack_movements_and_turnover, minimize_outbound_energy_time_with_batch,
-                 maximize_inventory_balance_v2, maximize_space_utilization_v3, plates, delivery_times, heights, Dki, batches, cols_per_area):
+    def __init__(self, num_particles, num_positions, num_plates, w, c1, c2, max_iter, lambda_1, lambda_2, lambda_3,
+                 lambda_4):
+        # 初始化参数
         self.num_particles = num_particles
         self.num_positions = num_positions
         self.num_plates = num_plates
@@ -35,24 +43,14 @@ class PSO_with_Batch:
         self.c1 = c1
         self.c2 = c2
         self.max_iter = max_iter
-        self.particles = [Particle(num_positions, num_plates) for _ in range(self.num_particles)]
-        self.gbest_position = None
-        self.gbest_score = np.inf
         self.lambda_1 = lambda_1
         self.lambda_2 = lambda_2
         self.lambda_3 = lambda_3
         self.lambda_4 = lambda_4
-        self.convergence_data = []  # 初始化收敛数据
-        self.minimize_stack_movements_and_turnover = minimize_stack_movements_and_turnover
-        self.minimize_outbound_energy_time_with_batch = minimize_outbound_energy_time_with_batch
-        self.maximize_inventory_balance_v2 = maximize_inventory_balance_v2
-        self.maximize_space_utilization_v3 = maximize_space_utilization_v3
-        self.plates = plates
-        self.delivery_times = delivery_times
-        self.heights = heights
-        self.Dki = Dki
-        self.batches = batches
-        self.cols_per_area = cols_per_area  # 添加 cols_per_area 参数
+        # 初始化粒子群
+        self.particles = [Particle(num_positions, num_plates) for _ in range(num_particles)]
+        self.gbest_position = None
+        self.gbest_score = np.inf
 
     def optimize(self):
         for iteration in range(self.max_iter):
@@ -60,58 +58,36 @@ class PSO_with_Batch:
                 if self.gbest_position is None:
                     self.gbest_position = particle.position.copy()
 
-                temp_heights = self.heights.copy()
+                # 创建一个临时高度矩阵用于计算得分
+                temp_heights = np.zeros(self.num_positions)
 
-                # 计算目标函数的惩罚项
-                combined_movement_turnover_penalty = self.minimize_stack_movements_and_turnover(
-                    particle.position, temp_heights, self.plates, self.delivery_times, self.num_positions,
-                    self.cols_per_area, self.batches)
-                energy_time_penalty = self.minimize_outbound_energy_time_with_batch(particle.position, self.plates,
-                                                                                   temp_heights, area_positions, stack_dimensions,
-                                                                                   horizontal_speed, vertical_speed, conveyor_position_x, conveyor_position_y)
-                balance_penalty = self.maximize_inventory_balance_v2(particle.position, self.plates, self.Dki, self.num_positions)
-                space_utilization = self.maximize_space_utilization_v3(particle.position, self.plates, self.Dki)
+                # 计算目标函数得分
+                combined_score = self.calculate_combined_score(particle.position, temp_heights)
 
-                # 计算当前的总得分
-                current_score = (self.lambda_1 * combined_movement_turnover_penalty +
-                                 self.lambda_2 * energy_time_penalty +
-                                 self.lambda_3 * balance_penalty -
-                                 self.lambda_4 * space_utilization)
-
-                # 更新粒子的历史最佳位置
-                if current_score < particle.best_score:
-                    particle.best_score = current_score
+                # 更新粒子历史最佳位置和全局最佳位置
+                if combined_score is not None and combined_score < particle.best_score:
+                    particle.best_score = combined_score
                     particle.best_position = particle.position.copy()
 
-                # 更新全局最佳位置
-                if current_score < self.gbest_score:
-                    self.gbest_score = current_score
+                if combined_score is not None and combined_score < self.gbest_score:
+                    self.gbest_score = combined_score
                     self.gbest_position = particle.position.copy()
 
-            # 更新粒子的位置和速度
+            # 更新每个粒子的速度和位置
             for particle in self.particles:
                 particle.update_velocity(self.gbest_position, self.w, self.c1, self.c2)
                 particle.update_position(self.num_positions)
 
-            # 保存收敛数据
-            self.convergence_data.append([iteration + 1, self.gbest_score])
+    def calculate_combined_score(self, particle_position, heights):
+        # 目标函数的集成计算，具体逻辑在 home.py 中实现
+        movement_turnover_penalty = minimize_stack_movements_and_turnover(particle_position, heights, plates,
+                                                                          delivery_times, batches)
+        energy_time_penalty = minimize_outbound_energy_time_with_batch(particle_position, plates, heights)
+        balance_penalty = maximize_inventory_balance_v2(particle_position, plates)
+        space_utilization = maximize_space_utilization_v3(particle_position, plates, Dki)
 
-            # 打印迭代信息
-            print(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.gbest_score}')
-
-        # 更新最终高度
-        self.update_final_heights()
-
-    def update_final_heights(self):
-        self.heights = np.zeros(len(self.Dki))
-        for plate_idx, position in enumerate(self.gbest_position):
-            area = position
-            self.heights[area] += self.plates[plate_idx, 2]
-
-    def save_convergence_to_csv(self, filepath):
-        convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-        convergence_data_df.to_csv(filepath, index=False)
-
-
-
+        # 返回综合得分
+        return (self.lambda_1 * movement_turnover_penalty +
+                self.lambda_2 * energy_time_penalty +
+                self.lambda_3 * balance_penalty -
+                self.lambda_4 * space_utilization)

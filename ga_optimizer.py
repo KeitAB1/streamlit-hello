@@ -1,48 +1,9 @@
-# ga_optimizer.py
 import numpy as np
-import pandas as pd
-from optimization_functions import minimize_stack_movements_and_turnover, minimize_outbound_energy_time_with_batch, \
+from home import minimize_stack_movements_and_turnover, minimize_outbound_energy_time_with_batch, \
     maximize_inventory_balance_v2, maximize_space_utilization_v3
 
-# 适应度函数，用于计算个体的适应度
-def fitness_function(particle_positions, plates, heights, delivery_times, Dki, lambda_1, lambda_2, lambda_3, lambda_4):
-    # 计算每个目标函数的惩罚项和得分
-    movement_turnover_penalty = minimize_stack_movements_and_turnover(particle_positions, heights, plates, delivery_times)
-    energy_time_penalty = minimize_outbound_energy_time_with_batch(particle_positions, plates, heights)
-    balance_penalty = maximize_inventory_balance_v2(particle_positions, plates)
-    space_utilization = maximize_space_utilization_v3(particle_positions, plates, Dki)
-
-    # 综合目标函数得分，返回总适应度分数
-    score = (lambda_1 * movement_turnover_penalty +
-             lambda_2 * energy_time_penalty +
-             lambda_3 * balance_penalty -
-             lambda_4 * space_utilization)
-    return score
-
-# 选择操作：轮盘赌选择
-def selection(population, fitness_values):
-    probabilities = fitness_values / np.sum(fitness_values)
-    selected_indices = np.random.choice(range(len(population)), size=len(population), p=probabilities)
-    return population[selected_indices]
-
-# 交叉操作：单点交叉
-def crossover(parent1, parent2):
-    crossover_point = np.random.randint(0, len(parent1))
-    child1 = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
-    child2 = np.concatenate((parent2[:crossover_point], parent1[crossover_point:]))
-    return child1, child2
-
-# 变异操作：随机变异
-def mutation(individual, num_positions, mutation_rate=0.01):
-    for i in range(len(individual)):
-        if np.random.rand() < mutation_rate:
-            individual[i] = np.random.randint(0, num_positions)
-    return individual
-
-# GA优化算法类
 class GeneticAlgorithm:
-    def __init__(self, population_size, num_generations, mutation_rate, num_particles, num_positions,
-                 lambda_1, lambda_2, lambda_3, lambda_4):
+    def __init__(self, population_size, num_generations, mutation_rate, num_particles, num_positions, lambda_1, lambda_2, lambda_3, lambda_4):
         self.population_size = population_size
         self.num_generations = num_generations
         self.mutation_rate = mutation_rate
@@ -52,43 +13,70 @@ class GeneticAlgorithm:
         self.lambda_2 = lambda_2
         self.lambda_3 = lambda_3
         self.lambda_4 = lambda_4
-        self.population = np.random.randint(0, num_positions, size=(self.population_size, self.num_particles))  # 初始化种群
-        self.convergence_curve = []
+
+        # 初始化种群
+        self.population = [np.random.randint(0, num_positions, size=num_particles) for _ in range(population_size)]
+        self.best_solution = None
+        self.best_score = np.inf
 
     def evolve(self, plates, heights, delivery_times, Dki):
         for generation in range(self.num_generations):
-            # 计算当前种群中的适应度值
-            fitness_values = np.array([fitness_function(individual, plates, heights.copy(), delivery_times, Dki,
-                                                        self.lambda_1, self.lambda_2, self.lambda_3, self.lambda_4)
-                                        for individual in self.population])
-            # 保存每一代最优适应度
-            self.convergence_curve.append(np.min(fitness_values))
+            scores = [self.calculate_combined_score(individual, plates, heights, delivery_times, Dki) for individual in
+                      self.population]
+            best_idx = np.argmin(scores)
+            best_individual = self.population[best_idx]
+            best_score = scores[best_idx]
 
-            # 选择操作
-            self.population = selection(self.population, fitness_values)
+            # 更新最佳解决方案
+            if best_score < self.best_score:
+                self.best_score = best_score
+                self.best_solution = best_individual
 
-            # 生成新种群
-            new_population = []
-            for i in range(0, self.population_size, 2):
-                parent1, parent2 = self.population[i], self.population[i + 1]
-                child1, child2 = crossover(parent1, parent2)
-                new_population.append(mutation(child1, self.num_positions, self.mutation_rate))
-                new_population.append(mutation(child2, self.num_positions, self.mutation_rate))
+            # 选择父母
+            selected_individuals = self.selection(scores)
 
-            self.population = np.array(new_population)
+            # 交叉生成新的后代
+            offspring = self.crossover(selected_individuals)
 
-            # 打印每一代的最佳适应度值
-            best_fitness = np.min(fitness_values)
-            print(f'Generation {generation + 1}/{self.num_generations}, Best Fitness: {best_fitness}')
+            # 进行变异
+            mutated_offspring = self.mutation(offspring)
+
+            # 更新种群
+            self.population = mutated_offspring
+
+            print(f"Generation {generation + 1}/{self.num_generations}, Best Score: {self.best_score}")
+
+    def calculate_combined_score(self, individual, plates, heights, delivery_times, Dki):
+        # 计算目标函数并返回总得分，结合多个优化目标
+        pass  # 详细实现与home.py中的目标函数有关
+
+    def selection(self, scores):
+        # 选择机制，可以使用轮盘赌或者锦标赛选择等
+        fitness = 1 / (np.array(scores) + 1e-6)  # 防止除零
+        probabilities = fitness / fitness.sum()
+        selected_indices = np.random.choice(len(self.population), size=self.population_size, p=probabilities)
+        return [self.population[i] for i in selected_indices]
+
+    def crossover(self, selected_individuals):
+        # 执行交叉操作，生成新的后代
+        offspring = []
+        for i in range(0, len(selected_individuals), 2):
+            parent1 = selected_individuals[i]
+            parent2 = selected_individuals[(i + 1) % len(selected_individuals)]
+            crossover_point = np.random.randint(0, self.num_particles)
+            child1 = np.concatenate((parent1[:crossover_point], parent2[crossover_point:]))
+            child2 = np.concatenate((parent2[:crossover_point], parent1[crossover_point:]))
+            offspring.extend([child1, child2])
+        return offspring
+
+    def mutation(self, offspring):
+        # 执行变异操作
+        for individual in offspring:
+            if np.random.rand() < self.mutation_rate:
+                mutation_idx = np.random.randint(0, self.num_particles)
+                individual[mutation_idx] = np.random.randint(0, self.num_positions)
+        return offspring
 
     def get_best_solution(self, plates, heights, delivery_times, Dki):
-        fitness_values = np.array([fitness_function(individual, plates, heights.copy(), delivery_times, Dki,
-                                                    self.lambda_1, self.lambda_2, self.lambda_3, self.lambda_4)
-                                    for individual in self.population])
-        best_index = np.argmin(fitness_values)
-        return self.population[best_index], fitness_values[best_index]
+        return self.best_solution, self.best_score
 
-    def save_convergence_to_csv(self, filepath):
-        # 将收敛数据保存到CSV文件
-        df_convergence = pd.DataFrame(self.convergence_curve, columns=['Best_Fitness'])
-        df_convergence.to_csv(filepath, index_label='Generation')

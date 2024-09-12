@@ -3,18 +3,20 @@ import numpy as np
 # 计算入库或出库时间的通用函数
 def calculate_movement_time(plate_idx, area, area_positions, plates, horizontal_speed, vertical_speed,
                             conveyor_position_x, conveyor_position_y, stack_dimensions, to_conveyor=True):
+    # 确保 area_positions 和 area 都是有效的
+    if area not in area_positions:
+        raise ValueError(f"Area {area} not found in area_positions.")
+
     x, y = area_positions[area][plate_idx % len(area_positions[area])]
     plate_length, plate_width = plates[plate_idx, 0], plates[plate_idx, 1]
 
     # 如果是入库，计算到传送带的距离；否则计算到出库口的距离
     if to_conveyor:
-        # 水平方向：从传送带中央移动到库区垛位
-        if area in [0, 1, 2]:  # 库区1、2、3
-            distance_to_location = conveyor_position_x  # 传送带到库区1-3的距离
-        else:  # 库区4、5、6
-            distance_to_location = conveyor_position_y  # 传送带到库区4-6的距离
+        if area in [0, 1, 2]:
+            distance_to_location = conveyor_position_x
+        else:
+            distance_to_location = conveyor_position_y
     else:
-        # 出库口距离：库区1-3距离出库口15000mm，库区4-6距离出库口3000mm
         if area in [0, 1, 2]:
             distance_to_location = 15000
         else:
@@ -23,7 +25,7 @@ def calculate_movement_time(plate_idx, area, area_positions, plates, horizontal_
     # 计算移动距离
     total_distance_x = abs(
         distance_to_location - (x * (stack_dimensions[area][plate_idx % len(stack_dimensions[area])][0] + 500)))
-    total_distance_y = y * 1000  # 假设垛位之间的间距为1000mm
+    total_distance_y = y * 1000  # 假设垛位之间的间距为 1000mm
 
     # 计算移动时间
     time_to_move_x = total_distance_x / horizontal_speed
@@ -33,17 +35,23 @@ def calculate_movement_time(plate_idx, area, area_positions, plates, horizontal_
 
 
 # 目标函数1：最小化翻垛次数
-def minimize_stack_movements_and_turnover(particle_positions, heights, plates, delivery_times, area_stacks, cols_per_area, batches, weight_movement=1.0, weight_turnover=1.0):
+def minimize_stack_movements_and_turnover(particle_positions, heights, plates, delivery_times, area_positions, batches, weight_movement=1.0, weight_turnover=1.0):
     num_movements = 0
     total_turnover = 0
     batch_turnover = 0
+
     for plate_idx, position in enumerate(particle_positions):
-        area = position // area_stacks[area]  # 根据库区计算
-        row = (position % area_stacks[area]) // cols_per_area[area]
-        col = (position % area_stacks[area]) % cols_per_area[area]
+        # 计算区域、行、列
+        area = position // len(area_positions[0])  # 根据区域数量计算库区
+        area_position_index = position % len(area_positions[area])  # 获取库区内的位置索引
+        row, col = area_positions[area][area_position_index]  # 获取具体的行和列
+
+        # 检查行和列是否超出高度数组的范围
+        if row >= heights.shape[1] or col >= heights.shape[2]:
+            raise IndexError(f"Row {row} or Column {col} is out of bounds for heights array of shape {heights.shape}")
 
         # 获取当前钢板的厚度
-        current_height = heights[area][(row, col)]
+        current_height = heights[area][row, col]
         plate_height = plates[plate_idx, 2]  # 厚度即为钢板的高度
 
         # 判断是否需要翻垛（按高度限制）
@@ -51,7 +59,7 @@ def minimize_stack_movements_and_turnover(particle_positions, heights, plates, d
             num_movements += 1  # 如果钢板在下方，则增加翻垛次数
 
         # 更新堆垛高度
-        heights[area][(row, col)] += plate_height
+        heights[area][row, col] += plate_height
 
     # 计算倒垛量优化公式 (结合交货时间)
     for i in range(len(particle_positions)):
@@ -65,6 +73,8 @@ def minimize_stack_movements_and_turnover(particle_positions, heights, plates, d
 
     combined_score = weight_movement * num_movements + weight_turnover * (total_turnover + batch_turnover)
     return combined_score
+
+
 
 
 
