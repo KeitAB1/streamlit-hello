@@ -294,6 +294,226 @@ if df is not None:
             convergence_data_df.to_csv(convergence_data_path, index=False)
 
 
+    class GA_with_Batch:
+        def __init__(self, population_size, mutation_rate, crossover_rate, generations, lambda_1, lambda_2, lambda_3,
+                     lambda_4, num_positions):
+            self.population_size = population_size
+            self.mutation_rate = mutation_rate
+            self.crossover_rate = crossover_rate
+            self.generations = generations
+            self.lambda_1 = lambda_1
+            self.lambda_2 = lambda_2
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+            self.num_positions = num_positions
+            self.population = [np.random.randint(0, num_positions, size=num_plates) for _ in range(population_size)]
+            self.best_individual = None
+            self.best_score = np.inf
+            self.convergence_data = []
+
+        def fitness(self, individual):
+            global heights
+            temp_heights = heights.copy()
+
+            combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
+                individual, temp_heights, plates, delivery_times, batches)
+            energy_time_penalty = minimize_outbound_energy_time_with_batch(individual, plates, temp_heights)
+            balance_penalty = maximize_inventory_balance_v2(individual, plates)
+            space_utilization = maximize_space_utilization_v3(individual, plates, Dki)
+
+            score = (self.lambda_1 * combined_movement_turnover_penalty +
+                     self.lambda_2 * energy_time_penalty +
+                     self.lambda_3 * balance_penalty -
+                     self.lambda_4 * space_utilization)
+
+            return score
+
+        def select(self):
+            fitness_scores = np.array([self.fitness(ind) for ind in self.population])
+            probabilities = np.exp(-fitness_scores / np.sum(fitness_scores))
+            probabilities /= probabilities.sum()  # Normalize to get probabilities
+            selected_indices = np.random.choice(len(self.population), size=self.population_size, p=probabilities)
+            return [self.population[i] for i in selected_indices]
+
+        def crossover(self, parent1, parent2):
+            if np.random.rand() < self.crossover_rate:
+                crossover_point = np.random.randint(1, num_plates)
+                child1 = np.concatenate([parent1[:crossover_point], parent2[crossover_point:]])
+                child2 = np.concatenate([parent2[:crossover_point], parent1[crossover_point:]])
+                return child1, child2
+            return parent1, parent2
+
+        def mutate(self, individual):
+            for i in range(len(individual)):
+                if np.random.rand() < self.mutation_rate:
+                    individual[i] = np.random.randint(0, self.num_positions)
+            return individual
+
+        def optimize(self):
+            for generation in range(self.generations):
+                new_population = []
+                selected_population = self.select()
+                for i in range(0, self.population_size, 2):
+                    parent1, parent2 = selected_population[i], selected_population[min(i + 1, self.population_size - 1)]
+                    child1, child2 = self.crossover(parent1, parent2)
+                    new_population.append(self.mutate(child1))
+                    new_population.append(self.mutate(child2))
+
+                self.population = new_population
+                best_individual_gen = min(self.population, key=self.fitness)
+                best_score_gen = self.fitness(best_individual_gen)
+
+                if best_score_gen < self.best_score:
+                    self.best_score = best_score_gen
+                    self.best_individual = best_individual_gen.copy()
+
+                self.convergence_data.append([generation + 1, self.best_score])
+                self.update_convergence_plot(generation + 1)
+
+                print(f'Generation {generation + 1}/{self.generations}, Best Score: {self.best_score}')
+
+            self.update_final_heights()
+
+        def update_final_heights(self):
+            global heights
+            heights = np.zeros(len(Dki))
+            for plate_idx, position in enumerate(self.best_individual):
+                area = position
+                heights[area] += plates[plate_idx, 2]
+
+        def update_convergence_plot(self, current_generation):
+            iteration_data = [x[0] for x in self.convergence_data]
+            score_data = [x[1] for x in self.convergence_data]
+
+            plt.figure(figsize=(8, 4))
+            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
+            plt.xlabel('Generations')
+            plt.ylabel('Best Score')
+            plt.title(f'Convergence Curve - Generation {current_generation}, Best Score {self.best_score}')
+            plt.legend()
+            convergence_plot_placeholder.pyplot(plt)
+
+            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Generation', 'Best Score'])
+            convergence_data_path = os.path.join(convergence_dir, 'convergence_data_ga.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
+
+
+    class SA_with_Batch:
+        def __init__(self, initial_temperature, cooling_rate, min_temperature, max_iterations, lambda_1, lambda_2,
+                     lambda_3, lambda_4, num_positions):
+            self.initial_temperature = initial_temperature
+            self.cooling_rate = cooling_rate
+            self.min_temperature = min_temperature
+            self.max_iterations = max_iterations
+            self.lambda_1 = lambda_1
+            self.lambda_2 = lambda_2
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+            self.num_positions = num_positions  # 修复：将 num_positions 添加为属性
+
+            # 初始化位置和最佳解
+            self.best_position = None
+            self.best_score = np.inf
+            self.convergence_data = []
+
+        def evaluate(self, position):
+            global heights
+            temp_heights = heights.copy()
+
+            try:
+                # 计算目标函数的惩罚项
+                combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
+                    position, temp_heights, plates, delivery_times, batches)
+                energy_time_penalty = minimize_outbound_energy_time_with_batch(position, plates, temp_heights)
+                balance_penalty = maximize_inventory_balance_v2(position, plates)
+                space_utilization = maximize_space_utilization_v3(position, plates, Dki)
+
+                # 计算当前的总得分
+                if space_utilization == 0:
+                    space_utilization = 1e-6  # 避免除以零
+                score = (self.lambda_1 * combined_movement_turnover_penalty +
+                         self.lambda_2 * energy_time_penalty +
+                         self.lambda_3 * balance_penalty -
+                         self.lambda_4 * space_utilization)
+
+                if np.isinf(score) or np.isnan(score):
+                    print(f"Invalid score detected: {score}")
+                    return np.inf
+
+                return score
+
+            except Exception as e:
+                print(f"Error in evaluation: {e}")
+                return np.inf
+
+        def optimize(self):
+            global heights
+            current_temperature = self.initial_temperature
+            current_position = np.random.randint(0, self.num_positions, size=num_plates)  # 初始化随机位置
+            current_score = self.evaluate(current_position)
+
+            self.best_position = current_position.copy()
+            self.best_score = current_score
+
+            for iteration in range(self.max_iterations):
+                if current_temperature < self.min_temperature:
+                    break
+
+                # 生成新解
+                new_position = current_position.copy()
+                random_index = np.random.randint(0, len(current_position))
+                new_position[random_index] = np.random.randint(0, self.num_positions)
+                new_score = self.evaluate(new_position)
+
+                # 计算接受概率
+                delta = new_score - current_score
+                if delta < 0 or np.random.rand() < np.exp(-delta / current_temperature):
+                    current_position = new_position
+                    current_score = new_score
+
+                # 更新全局最佳解
+                if current_score < self.best_score:
+                    self.best_score = current_score
+                    self.best_position = current_position.copy()
+
+                # 降温
+                current_temperature *= self.cooling_rate
+
+                # 保存收敛数据
+                self.convergence_data.append([iteration + 1, self.best_score])
+
+                # 实时更新收敛曲线
+                self.update_convergence_plot(iteration + 1)  # 修复：传递当前迭代数
+
+                # 打印每次迭代的最佳得分
+                print(
+                    f"Iteration {iteration + 1}/{self.max_iterations}, Best Score: {self.best_score}, Temperature: {current_temperature}")
+
+            return self.best_position, self.best_score
+
+        def update_convergence_plot(self, current_iteration):
+            # 动态更新收敛曲线
+            iteration_data = [x[0] for x in self.convergence_data]
+            score_data = [x[1] for x in self.convergence_data]
+
+            plt.figure(figsize=(8, 4))
+            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
+            plt.xlabel('Iterations')
+            plt.ylabel('Best Score')
+            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.best_score}')
+            plt.legend()
+
+            # 使用 Streamlit 的空占位符更新图表
+            convergence_plot_placeholder.pyplot(plt)
+
+            # 保存收敛数据到 CSV 文件
+            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
+            convergence_data_dir = "result/ConvergenceData"
+            os.makedirs(convergence_data_dir, exist_ok=True)
+            convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_sa.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
+
+
     if selected_algorithm == "PSO (Particle Swarm Optimization)":
         # Initialize and run PSO_with_Batch
         pso_with_batch = PSO_with_Batch(num_particles=30, num_positions=len(Dki),
