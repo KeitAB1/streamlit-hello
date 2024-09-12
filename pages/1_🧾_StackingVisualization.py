@@ -10,16 +10,25 @@ else:
     # 可视化逻辑
     st.title("Stack Visualization")
 
-    # 读取优化后的数据
-    data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates.csv'
+    # 在侧边栏中添加优化算法的选择
+    algorithm_choice = st.sidebar.selectbox("Select Optimization Algorithm", ["PSO", "GA", "SA"])
+
+    # 根据选择的算法读取对应的文件
+    if algorithm_choice == "PSO":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_pso.csv'
+    elif algorithm_choice == "GA":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_ga.csv'
+    elif algorithm_choice == "SA":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_sa.csv'
 
     # 确保文件存在
     if not os.path.exists(data_file_path):
-        st.error(f"File {data_file_path} not found. Please make sure the file exists.")
+        st.error(
+            f"File for {algorithm_choice} optimization not found. Please return to the home page to complete the stacking optimization using the {algorithm_choice} algorithm.")
     else:
         df = pd.read_csv(data_file_path)
 
-        st.write("Loaded optimized dataset:")
+        st.write(f"Loaded optimized dataset for {algorithm_choice}:")
         st.write(df.head())
 
         # 示例库区布局

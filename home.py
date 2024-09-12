@@ -3,6 +3,15 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from auxiliary import InterfaceLayout as il
+
+from optimization_functions import  minimize_stack_movements_and_turnover, minimize_outbound_energy_time_with_batch, \
+    maximize_inventory_balance_v2, maximize_space_utilization_v3
+
+from optimizers.pso_optimizer import PSO_with_Batch
+from optimizers.ga_optimizer import GA_with_Batch
+from optimizers.sa_optimizer import SA_with_Batch
+
 
 # 全局变量用于存储结果
 heights = None
@@ -10,15 +19,22 @@ heights = None
 # 创建用于保存图像的目录
 output_dir = "stack_distribution_plots/final_stack_distribution"
 convergence_dir = "result/ConvergenceData"
+data_dir = "test/steel_data"  # 统一数据集目录
 os.makedirs(output_dir, exist_ok=True)
 os.makedirs(convergence_dir, exist_ok=True)
+os.makedirs(data_dir, exist_ok=True)
 
+# 定义保存路径为 test_data.csv
+test_data_path = os.path.join(data_dir, "test_data.csv")
 
-st.title("Steel Plate Stacking Optimization")
+# st.title("Steel Plate Stacking Optimization")
+# 显示图标和标题
+icon_path = "data/introduction_src/icons/home_标题.png"
+il.display_icon_with_header(icon_path, "Steel Plate Stacking Optimization", font_size='45px')
 
 # 获取 data 文件夹下的所有 CSV 文件
-data_dir = "data"
-available_datasets = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+system_data_dir = "data"  # 系统数据集目录
+available_datasets = [f for f in os.listdir(system_data_dir) if f.endswith('.csv')]
 
 # 选择数据集的方式
 data_choice = st.selectbox("Choose dataset", ("Use system dataset", "Upload your own dataset"))
@@ -30,7 +46,10 @@ df = None
 if data_choice == "Upload your own dataset":
     uploaded_file = st.file_uploader("Upload your steel plate dataset (CSV)", type=["csv"])
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+        # 将上传的文件保存为 test_data.csv
+        with open(test_data_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        df = pd.read_csv(test_data_path)
         st.write("Uploaded dataset:")
         st.write(df.head())
     else:
@@ -42,8 +61,10 @@ else:
     selected_dataset = st.selectbox("Select a system dataset", [""] + available_datasets)
 
     if selected_dataset and selected_dataset != "":
-        system_dataset_path = os.path.join(data_dir, selected_dataset)
+        system_dataset_path = os.path.join(system_data_dir, selected_dataset)
+        # 复制系统数据集为 test_data.csv
         df = pd.read_csv(system_dataset_path)
+        df.to_csv(test_data_path, index=False)
         st.write(f"Using system dataset: {selected_dataset}")
         st.write(df.head())
     else:
@@ -94,6 +115,8 @@ with st.sidebar:
 
 # 动态显示收敛曲线的占位符
 convergence_plot_placeholder = st.empty()
+
+
 
 # 如果 df 已经加载，进行堆垛优化分析
 if df is not None:
@@ -151,140 +174,6 @@ if df is not None:
     df['Delivery Time'] = pd.to_datetime(df['Delivery Time'])
     df['Entry Time'] = pd.to_datetime(df['Entry Time'])
     delivery_times = (df['Delivery Time'] - df['Entry Time']).dt.days.values
-
-
-    # 计算入库或出库时间的通用函数
-    def calculate_movement_time(plate_idx, area, stack_positions, plates, horizontal_speed, vertical_speed,
-                                to_conveyor=True):
-        x, y = area_positions[area][plate_idx % len(area_positions[area])]
-        plate_length, plate_width = plates[plate_idx, 0], plates[plate_idx, 1]
-
-        # 如果是入库，计算到传送带的距离；否则计算到出库口的距离
-        if to_conveyor:
-            # 水平方向：从传送带中央移动到库区垛位
-            if area in [0, 1, 2]:  # 库区1、2、3
-                distance_to_location = conveyor_position_x  # 传送带到库区1-3的距离
-            else:  # 库区4、5、6
-                distance_to_location = conveyor_position_y  # 传送带到库区4-6的距离
-        else:
-            # 出库口距离：库区1-3距离出库口15000mm，库区4-6距离出库口3000mm
-            if area in [0, 1, 2]:
-                distance_to_location = 15000
-            else:
-                distance_to_location = 3000
-
-        # 计算移动距离
-        total_distance_x = abs(
-            distance_to_location - (x * (stack_dimensions[area][plate_idx % len(stack_dimensions[area])][0] + 500)))
-        total_distance_y = y * 1000  # 假设垛位之间的间距为1000mm
-
-        # 计算移动时间
-        time_to_move_x = total_distance_x / horizontal_speed
-        time_to_move_y = total_distance_y / vertical_speed
-
-        return time_to_move_x + time_to_move_y
-
-
-    # 目标函数1：最小化翻垛次数
-    def minimize_stack_movements_and_turnover(particle_positions, heights, plates, delivery_times, batches,
-                                              weight_movement=1.0, weight_turnover=1.0):
-        num_movements = 0
-        total_turnover = 0
-        batch_turnover = 0
-        for plate_idx, position in enumerate(particle_positions):
-            area = position
-            plate_height = plates[plate_idx, 2]  # 厚度即为钢板的高度
-            current_height = heights[area]
-
-            # 判断是否需要翻垛（按高度限制）
-            if current_height + plate_height > 3000:
-                num_movements += 1  # 超过限制高度需要翻垛
-
-            heights[area] += plate_height  # 更新当前垛位高度
-
-            for i in range(len(particle_positions)):
-                for j in range(i + 1, len(particle_positions)):
-                    # 考虑钢板的交货时间差来计算翻转次数
-                    time_diff = abs(delivery_times[i] - delivery_times[j])
-                    total_turnover += time_diff
-
-                    # 如果属于不同批次，增加翻堆次数
-                    if batches[i] != batches[j]:
-                        batch_turnover += 1
-
-            combined_score = weight_movement * num_movements + weight_turnover * (total_turnover + batch_turnover)
-            return combined_score
-
-    # 目标函数2：最小化出库能耗与时间
-    def minimize_outbound_energy_time_with_batch(particle_positions, plates, heights):
-        total_energy_time = 0
-
-        # 批次排序，确保按Q1-Q15顺序出库
-        sorted_batches = sorted(set(batches), key=lambda x: int(x[1:]))
-        plate_indices_by_batch = {batch: [] for batch in sorted_batches}
-
-        # 按批次将钢板索引分配
-        for plate_idx, plate in enumerate(plates):
-            batch = plate[4]  # 批次信息在第5列（索引4）
-            plate_indices_by_batch[batch].append(plate_idx)
-
-        # 按批次依次处理出库
-        for batch in sorted_batches:
-            for plate_idx in plate_indices_by_batch[batch]:
-                position = particle_positions[plate_idx]
-                area = position  # 获取钢板所在库区
-                plate_height = plates[plate_idx, 2]  # 获取钢板厚度
-
-                # 调用出库时间计算
-                outbound_time = calculate_movement_time(plate_idx, area, area_positions, plates, horizontal_speed,
-                                                        vertical_speed, to_conveyor=False)
-
-                # 更新堆垛高度
-                heights[area] -= plate_height
-                total_energy_time += outbound_time
-
-        return total_energy_time
-
-
-    # 目标函数3：最大化库存均衡度
-    def maximize_inventory_balance_v2(particle_positions, plates):
-        total_variance = 0
-        total_volume = np.sum(plates[:, 0] * plates[:, 1] * plates[:, 2])
-        num_positions = len(Dki)
-        mean_volume_per_position = total_volume / num_positions
-        area_volumes = np.zeros(num_positions)
-
-        # 计算每个库区的体积占用
-        for plate_idx, position in enumerate(particle_positions):
-            plate_volume = plates[plate_idx][0] * plates[plate_idx][1] * plates[plate_idx][2]
-            area_volumes[position] += plate_volume
-
-        # 计算均衡度的方差，通过减小方差使各个库区的体积更均衡
-        for j in range(num_positions):
-            total_variance += (area_volumes[j] - mean_volume_per_position) ** 2
-
-        return total_variance / num_positions  # 方差越小，均衡度越好
-
-
-    # 目标函数4：空间利用率最大化
-    def maximize_space_utilization_v3(particle_positions, plates, Dki, alpha_1=1.0, epsilon=1e-6):
-        total_space_utilization = 0
-        for i in range(len(Dki)):
-            used_volume = 0
-            max_volume = Dki[i]
-
-            for j in range(len(plates)):
-                if particle_positions[j] == i:
-                    plate_volume = plates[j][0] * plates[j][1] * plates[j][2]
-                    used_volume += plate_volume
-
-            if used_volume > 0:
-                utilization = alpha_1 * max((max_volume - used_volume), epsilon) / used_volume
-                total_space_utilization += utilization
-            else:
-                total_space_utilization += 0
-
-        return total_space_utilization
 
 
     # 定义粒子类
@@ -405,226 +294,6 @@ if df is not None:
             convergence_data_df.to_csv(convergence_data_path, index=False)
 
 
-    class GA_with_Batch:
-        def __init__(self, population_size, mutation_rate, crossover_rate, generations, lambda_1, lambda_2, lambda_3,
-                     lambda_4, num_positions):
-            self.population_size = population_size
-            self.mutation_rate = mutation_rate
-            self.crossover_rate = crossover_rate
-            self.generations = generations
-            self.lambda_1 = lambda_1
-            self.lambda_2 = lambda_2
-            self.lambda_3 = lambda_3
-            self.lambda_4 = lambda_4
-            self.num_positions = num_positions
-            self.population = [np.random.randint(0, num_positions, size=num_plates) for _ in range(population_size)]
-            self.best_individual = None
-            self.best_score = np.inf
-            self.convergence_data = []
-
-        def fitness(self, individual):
-            global heights
-            temp_heights = heights.copy()
-
-            combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
-                individual, temp_heights, plates, delivery_times, batches)
-            energy_time_penalty = minimize_outbound_energy_time_with_batch(individual, plates, temp_heights)
-            balance_penalty = maximize_inventory_balance_v2(individual, plates)
-            space_utilization = maximize_space_utilization_v3(individual, plates, Dki)
-
-            score = (self.lambda_1 * combined_movement_turnover_penalty +
-                     self.lambda_2 * energy_time_penalty +
-                     self.lambda_3 * balance_penalty -
-                     self.lambda_4 * space_utilization)
-
-            return score
-
-        def select(self):
-            fitness_scores = np.array([self.fitness(ind) for ind in self.population])
-            probabilities = np.exp(-fitness_scores / np.sum(fitness_scores))
-            probabilities /= probabilities.sum()  # Normalize to get probabilities
-            selected_indices = np.random.choice(len(self.population), size=self.population_size, p=probabilities)
-            return [self.population[i] for i in selected_indices]
-
-        def crossover(self, parent1, parent2):
-            if np.random.rand() < self.crossover_rate:
-                crossover_point = np.random.randint(1, num_plates)
-                child1 = np.concatenate([parent1[:crossover_point], parent2[crossover_point:]])
-                child2 = np.concatenate([parent2[:crossover_point], parent1[crossover_point:]])
-                return child1, child2
-            return parent1, parent2
-
-        def mutate(self, individual):
-            for i in range(len(individual)):
-                if np.random.rand() < self.mutation_rate:
-                    individual[i] = np.random.randint(0, self.num_positions)
-            return individual
-
-        def optimize(self):
-            for generation in range(self.generations):
-                new_population = []
-                selected_population = self.select()
-                for i in range(0, self.population_size, 2):
-                    parent1, parent2 = selected_population[i], selected_population[min(i + 1, self.population_size - 1)]
-                    child1, child2 = self.crossover(parent1, parent2)
-                    new_population.append(self.mutate(child1))
-                    new_population.append(self.mutate(child2))
-
-                self.population = new_population
-                best_individual_gen = min(self.population, key=self.fitness)
-                best_score_gen = self.fitness(best_individual_gen)
-
-                if best_score_gen < self.best_score:
-                    self.best_score = best_score_gen
-                    self.best_individual = best_individual_gen.copy()
-
-                self.convergence_data.append([generation + 1, self.best_score])
-                self.update_convergence_plot(generation + 1)
-
-                print(f'Generation {generation + 1}/{self.generations}, Best Score: {self.best_score}')
-
-            self.update_final_heights()
-
-        def update_final_heights(self):
-            global heights
-            heights = np.zeros(len(Dki))
-            for plate_idx, position in enumerate(self.best_individual):
-                area = position
-                heights[area] += plates[plate_idx, 2]
-
-        def update_convergence_plot(self, current_generation):
-            iteration_data = [x[0] for x in self.convergence_data]
-            score_data = [x[1] for x in self.convergence_data]
-
-            plt.figure(figsize=(8, 4))
-            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
-            plt.xlabel('Generations')
-            plt.ylabel('Best Score')
-            plt.title(f'Convergence Curve - Generation {current_generation}, Best Score {self.best_score}')
-            plt.legend()
-            convergence_plot_placeholder.pyplot(plt)
-
-            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Generation', 'Best Score'])
-            convergence_data_path = os.path.join(convergence_dir, 'convergence_data_ga.csv')
-            convergence_data_df.to_csv(convergence_data_path, index=False)
-
-
-    class SA_with_Batch:
-        def __init__(self, initial_temperature, cooling_rate, min_temperature, max_iterations, lambda_1, lambda_2,
-                     lambda_3, lambda_4, num_positions):
-            self.initial_temperature = initial_temperature
-            self.cooling_rate = cooling_rate
-            self.min_temperature = min_temperature
-            self.max_iterations = max_iterations
-            self.lambda_1 = lambda_1
-            self.lambda_2 = lambda_2
-            self.lambda_3 = lambda_3
-            self.lambda_4 = lambda_4
-            self.num_positions = num_positions  # 修复：将 num_positions 添加为属性
-
-            # 初始化位置和最佳解
-            self.best_position = None
-            self.best_score = np.inf
-            self.convergence_data = []
-
-        def evaluate(self, position):
-            global heights
-            temp_heights = heights.copy()
-
-            try:
-                # 计算目标函数的惩罚项
-                combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
-                    position, temp_heights, plates, delivery_times, batches)
-                energy_time_penalty = minimize_outbound_energy_time_with_batch(position, plates, temp_heights)
-                balance_penalty = maximize_inventory_balance_v2(position, plates)
-                space_utilization = maximize_space_utilization_v3(position, plates, Dki)
-
-                # 计算当前的总得分
-                if space_utilization == 0:
-                    space_utilization = 1e-6  # 避免除以零
-                score = (self.lambda_1 * combined_movement_turnover_penalty +
-                         self.lambda_2 * energy_time_penalty +
-                         self.lambda_3 * balance_penalty -
-                         self.lambda_4 * space_utilization)
-
-                if np.isinf(score) or np.isnan(score):
-                    print(f"Invalid score detected: {score}")
-                    return np.inf
-
-                return score
-
-            except Exception as e:
-                print(f"Error in evaluation: {e}")
-                return np.inf
-
-        def optimize(self):
-            global heights
-            current_temperature = self.initial_temperature
-            current_position = np.random.randint(0, self.num_positions, size=num_plates)  # 初始化随机位置
-            current_score = self.evaluate(current_position)
-
-            self.best_position = current_position.copy()
-            self.best_score = current_score
-
-            for iteration in range(self.max_iterations):
-                if current_temperature < self.min_temperature:
-                    break
-
-                # 生成新解
-                new_position = current_position.copy()
-                random_index = np.random.randint(0, len(current_position))
-                new_position[random_index] = np.random.randint(0, self.num_positions)
-                new_score = self.evaluate(new_position)
-
-                # 计算接受概率
-                delta = new_score - current_score
-                if delta < 0 or np.random.rand() < np.exp(-delta / current_temperature):
-                    current_position = new_position
-                    current_score = new_score
-
-                # 更新全局最佳解
-                if current_score < self.best_score:
-                    self.best_score = current_score
-                    self.best_position = current_position.copy()
-
-                # 降温
-                current_temperature *= self.cooling_rate
-
-                # 保存收敛数据
-                self.convergence_data.append([iteration + 1, self.best_score])
-
-                # 实时更新收敛曲线
-                self.update_convergence_plot(iteration + 1)  # 修复：传递当前迭代数
-
-                # 打印每次迭代的最佳得分
-                print(
-                    f"Iteration {iteration + 1}/{self.max_iterations}, Best Score: {self.best_score}, Temperature: {current_temperature}")
-
-            return self.best_position, self.best_score
-
-        def update_convergence_plot(self, current_iteration):
-            # 动态更新收敛曲线
-            iteration_data = [x[0] for x in self.convergence_data]
-            score_data = [x[1] for x in self.convergence_data]
-
-            plt.figure(figsize=(8, 4))
-            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
-            plt.xlabel('Iterations')
-            plt.ylabel('Best Score')
-            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.best_score}')
-            plt.legend()
-
-            # 使用 Streamlit 的空占位符更新图表
-            convergence_plot_placeholder.pyplot(plt)
-
-            # 保存收敛数据到 CSV 文件
-            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
-            convergence_data_dir = "result/ConvergenceData"
-            os.makedirs(convergence_data_dir, exist_ok=True)
-            convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_sa.csv')
-            convergence_data_df.to_csv(convergence_data_path, index=False)
-
-
     if selected_algorithm == "PSO (Particle Swarm Optimization)":
         # Initialize and run PSO_with_Batch
         pso_with_batch = PSO_with_Batch(num_particles=30, num_positions=len(Dki),
@@ -634,6 +303,7 @@ if df is not None:
 
         # Start optimization
         pso_with_batch.optimize()
+
 
         # 获取最优解并将其映射到df
         final_positions_with_batch = pso_with_batch.gbest_position
@@ -671,7 +341,7 @@ if df is not None:
 
         # 保存计算后的数据
         final_stack_distribution_path = os.path.join(
-            "result/final_stack_distribution/final_stack_distribution_plates.csv")
+            "result/final_stack_distribution/final_stack_distribution_plates_pso.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化
@@ -819,7 +489,7 @@ if df is not None:
 
         # 保存计算后的数据
         final_stack_distribution_path = os.path.join(
-            "result/final_stack_distribution/final_stack_distribution_plates.csv")
+            "result/final_stack_distribution/final_stack_distribution_plates_sa.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化
@@ -963,7 +633,7 @@ if df is not None:
 
         # 保存计算后的数据
         final_stack_distribution_path = os.path.join(
-            "result/final_stack_distribution/final_stack_distribution_plates.csv")
+            "result/final_stack_distribution/final_stack_distribution_plates_sa.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化

@@ -1,7 +1,8 @@
 import streamlit as st
-import base64
 import os
+import time
 from PIL import Image
+from auxiliary import InterfaceLayout as il
 
 # 设置页面标题和自定义颜色样式
 st.markdown("<h1 style='text-align: center; color: #ffa365;'>智能仓储系统介绍</h1>", unsafe_allow_html=True)
@@ -12,31 +13,9 @@ st.markdown("<h2 style='text-align: center; color: #ffc36f;'>Intelligent Warehou
 # 添加间距
 st.markdown("<br><br>", unsafe_allow_html=True)
 
-# 将图片转换为 base64 格式
-def image_to_base64(image_path):
-    with open(image_path, "rb") as img_file:
-        return base64.b64encode(img_file.read()).decode()
-
-# 自定义一个函数来创建带有图标和标题的组合
-def display_icon_with_header(icon_path, header_text):
-    if os.path.exists(icon_path):
-        # 将图片转换为 Base64 格式
-        img_base64 = image_to_base64(icon_path)
-        # 使用 HTML 和 CSS 实现图标和标题的对齐
-        st.markdown(
-            f"""
-            <div style="display: flex; align-items: center;">
-                <img src="data:image/png;base64,{img_base64}" width="40" style="margin-right: 10px;">
-                <h3 style="margin: 0;">{header_text}</h3>
-            </div>
-            """, unsafe_allow_html=True
-        )
-    else:
-        st.header(header_text)
-
 # 第一部分：文字描述，图标放在标题左边
 intro_icon_path = "data/introduction_src/icons/intro_介绍.png"
-display_icon_with_header(intro_icon_path, "系统功能介绍")
+il.display_icon_with_header(intro_icon_path, "系统功能介绍")
 
 st.write("""
 - 钢板图像识别
@@ -51,13 +30,15 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 
 # 第二部分：展示多张图片介绍项目，图标放在标题左边
 image_icon_path = "data/introduction_src/icons/intro_图片.png"
-display_icon_with_header(image_icon_path, "项目图片展示")
+il.display_icon_with_header(image_icon_path, "项目图片展示")
 
 image_dir = "data/introduction_src"
 
-# 初始化 session state 中的图像索引
+# 初始化 session state 中的图像索引和自动切换状态
 if 'image_index' not in st.session_state:
     st.session_state.image_index = 0
+if 'auto_switch' not in st.session_state:
+    st.session_state.auto_switch = True
 
 # 检查是否存在图片
 if os.path.exists(image_dir):
@@ -68,18 +49,51 @@ if os.path.exists(image_dir):
 
         current_image_path = os.path.join(image_dir, images[current_index])
 
-        # 显示当前图片
+        # 使用st.image来显示图片
         image = Image.open(current_image_path)
         st.image(image, caption=f"项目图片 {current_index + 1}/{total_images}", use_column_width=True)
 
+        # 自动切换逻辑，每5秒自动切换
+        if st.session_state.auto_switch:
+            # 使用 st_autorefresh，每5秒触发自动切换
+            st.experimental_rerun() if time.time() % 5 < 1 else None
+
         # 创建图片切换按钮放在图片下方
         col_left, col_right = st.columns([1, 1])
-        with col_left:
-            if st.button("上一张"):
-                st.session_state.image_index = (current_index - 1) % total_images
-        with col_right:
-            if st.button("下一张"):
-                st.session_state.image_index = (current_index + 1) % total_images
+
+        prev_button = col_left.button("上一张")
+        next_button = col_right.button("下一张")
+
+        # 使用按钮返回值来控制图像索引的更新
+        if prev_button:
+            st.session_state.image_index = (current_index - 1) % total_images
+            st.session_state.auto_switch = False  # 按按钮后暂停自动切换
+            st.experimental_rerun()
+        if next_button:
+            st.session_state.image_index = (current_index + 1) % total_images
+            st.session_state.auto_switch = False  # 按按钮后暂停自动切换
+            st.experimental_rerun()
+
+        # JavaScript部分用于暂停自动切换
+        st.markdown(
+            """
+            <script>
+            let imgElement = document.querySelector('img');
+            let isHovered = false;
+
+            imgElement.addEventListener('mouseover', function() {
+                isHovered = true;
+                window.parent.postMessage({'type': 'pauseAutoSwitch'}, '*');
+            });
+
+            imgElement.addEventListener('mouseout', function() {
+                isHovered = false;
+                window.parent.postMessage({'type': 'resumeAutoSwitch'}, '*');
+            });
+            </script>
+            """,
+            unsafe_allow_html=True
+        )
     else:
         st.write("暂无项目介绍图片")
 else:
@@ -90,7 +104,7 @@ st.markdown("<br><br>", unsafe_allow_html=True)
 
 # 第三部分：展示视频介绍项目，图标放在标题左边
 video_icon_path = "data/introduction_src/icons/Intro_视频.png"
-display_icon_with_header(video_icon_path, "项目视频展示")
+il.display_icon_with_header(video_icon_path, "项目视频展示")
 
 video_file = None
 
