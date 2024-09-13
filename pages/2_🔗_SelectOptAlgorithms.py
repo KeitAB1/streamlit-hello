@@ -21,6 +21,8 @@ def extract_algorithm_name(file_name):
         return "pso"
     elif "sa" in base_name:
         return "sa"
+    elif "aco" in base_name:
+        return "aco"
     else:
         return "unknown"
 

@@ -6,4 +6,4 @@ plotly
 orjson
 pytesseract
 Pillow
-opencv-python
+opencv-python-headless
