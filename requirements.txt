@@ -6,3 +6,4 @@ plotly
 orjson
 pytesseract
 Pillow
+opencv-python
