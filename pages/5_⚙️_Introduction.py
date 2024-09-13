@@ -1,14 +1,35 @@
 import streamlit as st
 import os
 from PIL import Image
-from auxiliary import InterfaceLayout as il
 
-#图片/视频文件夹地址
+# 图片/视频文件夹地址
 image_dir = "data/introduction_src"
 
 # 设置页面标题为黑色，英文副标题为灰色
 st.markdown("<h1 style='text-align: center; color: black;'>智能仓储系统介绍</h1>", unsafe_allow_html=True)
-st.markdown("<h2 style='text-align: center; color: gray;'>Intelligent Warehouse System Introduction</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: gray;'>Intelligent Warehouse System Introduction</h2>",
+            unsafe_allow_html=True)
+
+# 自定义按钮的 CSS 样式
+st.markdown("""
+    <style>
+    .stButton > button {
+        font-size: 18px;
+        padding: 10px 20px;
+        background-color: #d0e0e3;
+        color: black;
+        border: none;
+        border-radius: 5px;
+        transition-duration: 0.4s;
+    }
+    .stButton > button:hover {
+        background-color: #a9c0c6;
+    }
+    .stButton.selected > button {
+        background-color: #a9c0c6;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # 使用 session state 控制显示的部分
 if 'section' not in st.session_state:
@@ -16,23 +37,20 @@ if 'section' not in st.session_state:
 
 # 侧边栏用于切换部分内容
 st.sidebar.title("目录")
+
+# 定义按钮是否被点击，并使用 session state 记录当前选择
 if st.sidebar.button("系统功能介绍"):
     st.session_state.section = '功能介绍'
-    st.experimental_rerun()
 
 if st.sidebar.button("项目图片展示"):
     st.session_state.section = '图片展示'
-    st.experimental_rerun()
 
 if st.sidebar.button("项目视频展示"):
     st.session_state.section = '视频展示'
-    st.experimental_rerun()
 
 # 根据 session state 中的值展示不同的部分内容
 if st.session_state.section == '功能介绍':
-    st.markdown("<h3 style='text-align: left;'>系统功能介绍</h3>", unsafe_allow_html=True)
-    intro_icon_path = "data/introduction_src/icons/intro_介绍.png"
-    il.display_icon_with_header(intro_icon_path, "系统功能介绍")
+    st.markdown("<h3 style='text-align: left; font-weight: bold;'>系统功能介绍</h3>", unsafe_allow_html=True)
 
     st.write("""
     - 钢板图像识别
@@ -43,9 +61,7 @@ if st.session_state.section == '功能介绍':
     """)
 
 elif st.session_state.section == '图片展示':
-    st.markdown("<h3 style='text-align: left;'>项目图片展示</h3>", unsafe_allow_html=True)
-    image_icon_path = "data/introduction_src/icons/intro_图片.png"
-    il.display_icon_with_header(image_icon_path, "项目图片展示")
+    st.markdown("<h3 style='text-align: left; font-weight: bold;'>项目图片展示</h3>", unsafe_allow_html=True)
 
     # 检查是否存在图片
     if os.path.exists(image_dir):
@@ -65,11 +81,7 @@ elif st.session_state.section == '图片展示':
         st.write("暂无项目介绍图片")
 
 elif st.session_state.section == '视频展示':
-    st.markdown("<h3 style='text-align: left;'>项目视频展示</h3>", unsafe_allow_html=True)
-    video_icon_path = "data/introduction_src/icons/Intro_视频.png"
-    il.display_icon_with_header(video_icon_path, "项目视频展示")
-
-    video_file = None
+    st.markdown("<h3 style='text-align: left; font-weight: bold;'>项目视频展示</h3>", unsafe_allow_html=True)
 
     # 查找视频文件
     if os.path.exists(image_dir):
@@ -77,8 +89,9 @@ elif st.session_state.section == '视频展示':
         if videos:
             video_file = os.path.join(image_dir, videos[0])
 
-    # 显示视频
-    if video_file:
-        st.video(video_file)
+            # 显示视频
+            st.video(video_file)
+        else:
+            st.write("暂无项目介绍视频")
     else:
         st.write("暂无项目介绍视频")

@@ -755,6 +755,18 @@ if df is not None:
 
         # st.success(f"Optimization complete. Results saved to {output_file_plates_with_batch}")
 
+        # 确保生成 'Final Area' 列，并将最优解的位置信息保存
+        df['Final Area'] = final_positions_with_batch
+        df['Final X'] = final_x
+        df['Final Y'] = final_y
+
+        # 保存最终堆垛结果
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        df.to_csv(output_file_plates_with_batch, index=False)
+
+        st.success("Particle Swarm Optimization completed！ You can now visualize the results.")
+
+        # 计算堆垛高度信息
         heights_dict = {}
         df['Stacking Start Height'] = 0.0
         df['Stacking Height'] = 0.0
@@ -769,20 +781,20 @@ if df is not None:
             df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
             heights_dict[key] = df.loc[i, 'Stacking Height']
 
-        # 保存计算后的数据
+        # 保存带高度信息的堆垛结果
         final_stack_distribution_path = os.path.join(
             "result/final_stack_distribution/final_stack_distribution_plates_pso.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
-        st.write("### Final Stack Distribution Table")
+        st.write("Final Stack Distribution Table")
 
-        # 读取 final_stack_distribution_plates.csv 文件
-        df = pd.read_csv(final_stack_distribution_path)
+        # 展示每个钢板的堆垛坐标信息
+        df_plate_distribution = pd.read_csv(final_stack_distribution_path)
+        st.dataframe(df_plate_distribution)
 
         # 初始化用于统计的字典
         height_dict = {}
@@ -803,12 +815,6 @@ if df is not None:
                 height_dict[(area, pos[0], pos[1])] = 0.0
                 plate_count_dict[(area, pos[0], pos[1])] = 0
 
-
-        # 检查库区和垛位是否在layout中
-        def is_valid_position(area, x, y):
-            return (area in layout) and ((int(x), int(y)) in layout[area])
-
-
         # 使用已有的 Stacking Height，而不是累加 Thickness
         for index, row in df.iterrows():
             area = row['Final Area']
@@ -820,7 +826,7 @@ if df is not None:
             x = int(x)
             y = int(y)
 
-            if is_valid_position(area, x, y):
+            if (area in layout) and ((x, y) in layout[area]):
                 # 更新该垛位的堆垛高度
                 height_dict[(area, x, y)] = stacking_height
 
@@ -858,18 +864,14 @@ if df is not None:
 
             results.append(result_entry)
 
-            # 将结果转换为 DataFrame
+        # 将结果转换为 DataFrame 并显示
         result_df = pd.DataFrame(results)
-
-        # 显示统计表
         st.write("Stacking Distribution Statistics Table:")
         st.dataframe(result_df)
 
         # 保存结果到 CSV 文件
         output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_pso.csv'
         result_df.to_csv(output_file_heights, index=False)
-
-        # st.success(f"Stacking statistics saved to {output_file_heights}")
 
     elif selected_algorithm == "GA (Genetic Algorithm)":
         ga_with_batch = GA_with_Batch(
@@ -901,8 +903,9 @@ if df is not None:
         output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
         df.to_csv(output_file_plates_with_batch, index=False)
 
-        # st.success(f"Optimization complete. Results saved to {output_file_plates_with_batch}")
+        st.success("Genetic Algorithm completed！ You can now visualize the results.")
 
+        # 计算堆垛高度信息
         heights_dict = {}
         df['Stacking Start Height'] = 0.0
         df['Stacking Height'] = 0.0
@@ -917,20 +920,20 @@ if df is not None:
             df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
             heights_dict[key] = df.loc[i, 'Stacking Height']
 
-        # 保存计算后的数据
+        # 保存带高度信息的堆垛结果
         final_stack_distribution_path = os.path.join(
-            "result/final_stack_distribution/final_stack_distribution_plates_sa.csv")
+            "result/final_stack_distribution/final_stack_distribution_plates_ga.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
-        st.write("### Final Stack Distribution Table")
+        st.write("Final Stack Distribution Table")
 
-        # 读取 final_stack_distribution_plates.csv 文件
-        df = pd.read_csv(final_stack_distribution_path)
+        # 展示每个钢板的堆垛坐标信息
+        df_plate_distribution = pd.read_csv(final_stack_distribution_path)
+        st.dataframe(df_plate_distribution)
 
         # 初始化用于统计的字典
         height_dict = {}
@@ -951,12 +954,6 @@ if df is not None:
                 height_dict[(area, pos[0], pos[1])] = 0.0
                 plate_count_dict[(area, pos[0], pos[1])] = 0
 
-
-        # 检查库区和垛位是否在layout中
-        def is_valid_position(area, x, y):
-            return (area in layout) and ((int(x), int(y)) in layout[area])
-
-
         # 使用已有的 Stacking Height，而不是累加 Thickness
         for index, row in df.iterrows():
             area = row['Final Area']
@@ -968,7 +965,7 @@ if df is not None:
             x = int(x)
             y = int(y)
 
-            if is_valid_position(area, x, y):
+            if (area in layout) and ((x, y) in layout[area]):
                 # 更新该垛位的堆垛高度
                 height_dict[(area, x, y)] = stacking_height
 
@@ -1006,18 +1003,14 @@ if df is not None:
 
             results.append(result_entry)
 
-            # 将结果转换为 DataFrame
+        # 将结果转换为 DataFrame 并显示
         result_df = pd.DataFrame(results)
-
-        # 显示统计表
         st.write("Stacking Distribution Statistics Table:")
         st.dataframe(result_df)
 
         # 保存结果到 CSV 文件
         output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_ga.csv'
         result_df.to_csv(output_file_heights, index=False)
-
-        # st.success(f"Stacking statistics saved to {output_file_heights}")
 
     elif selected_algorithm == "SA (Simulated Annealing)":
         # Initialize and run SA_with_Batch
@@ -1027,7 +1020,10 @@ if df is not None:
             lambda_1=lambda_1, lambda_2=lambda_2, lambda_3=lambda_3, lambda_4=lambda_4,
             num_positions=len(Dki)
         )
+
+        # 运行SA优化
         best_position_sa, best_score_sa = sa_with_batch.optimize()
+
         final_x = []
         final_y = []
         for i, position in enumerate(best_position_sa):
@@ -1036,17 +1032,18 @@ if df is not None:
             final_x.append(x)
             final_y.append(y)
 
-        # 确保生成 'Final Area' 列，并将最优解的位置信息保存
+        # 保存'Final Area'、'Final X'和'Final Y'列
         df['Final Area'] = best_position_sa
         df['Final X'] = final_x
         df['Final Y'] = final_y
 
-        # 保存最终堆垛结果
-        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        # 保存最终堆垛结果文件
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution_plates_sa.csv'
         df.to_csv(output_file_plates_with_batch, index=False)
 
         st.success("Simulated Annealing optimization completed! You can now visualize the results.")
 
+        # 计算堆垛高度信息
         heights_dict = {}
         df['Stacking Start Height'] = 0.0
         df['Stacking Height'] = 0.0
@@ -1061,20 +1058,20 @@ if df is not None:
             df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
             heights_dict[key] = df.loc[i, 'Stacking Height']
 
-        # 保存计算后的数据
+        # 保存带高度信息的堆垛结果
         final_stack_distribution_path = os.path.join(
             "result/final_stack_distribution/final_stack_distribution_plates_sa.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
-        st.write("### Final Stack Distribution Table")
+        st.write("Final Stack Distribution Table")
 
-        # 读取 final_stack_distribution_plates.csv 文件
-        df = pd.read_csv(final_stack_distribution_path)
+        # 展示每个钢板的堆垛坐标信息
+        df_plate_distribution = pd.read_csv(final_stack_distribution_path)
+        st.dataframe(df_plate_distribution)
 
         # 初始化用于统计的字典
         height_dict = {}
@@ -1095,12 +1092,6 @@ if df is not None:
                 height_dict[(area, pos[0], pos[1])] = 0.0
                 plate_count_dict[(area, pos[0], pos[1])] = 0
 
-
-        # 检查库区和垛位是否在layout中
-        def is_valid_position(area, x, y):
-            return (area in layout) and ((int(x), int(y)) in layout[area])
-
-
         # 使用已有的 Stacking Height，而不是累加 Thickness
         for index, row in df.iterrows():
             area = row['Final Area']
@@ -1112,7 +1103,7 @@ if df is not None:
             x = int(x)
             y = int(y)
 
-            if is_valid_position(area, x, y):
+            if (area in layout) and ((x, y) in layout[area]):
                 # 更新该垛位的堆垛高度
                 height_dict[(area, x, y)] = stacking_height
 
@@ -1150,18 +1141,14 @@ if df is not None:
 
             results.append(result_entry)
 
-            # 将结果转换为 DataFrame
+        # 将结果转换为 DataFrame 并显示
         result_df = pd.DataFrame(results)
-
-        # 显示统计表
         st.write("Stacking Distribution Statistics Table:")
         st.dataframe(result_df)
 
         # 保存结果到 CSV 文件
-        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_sa.csv'
+        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_ga.csv'
         result_df.to_csv(output_file_heights, index=False)
-
-        # st.success(f"Stacking statistics saved to {output_file_heights}")
 
     elif selected_algorithm == "PSO + SA (Hybrid Optimization)":
         # 初始化 PSO + SA 优化器
@@ -1208,6 +1195,7 @@ if df is not None:
 
         st.success("PSO + SA hybrid optimization completed！ You can now visualize the results.")
 
+        # 计算堆垛高度信息
         heights_dict = {}
         df['Stacking Start Height'] = 0.0
         df['Stacking Height'] = 0.0
@@ -1222,20 +1210,20 @@ if df is not None:
             df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
             heights_dict[key] = df.loc[i, 'Stacking Height']
 
-        # 保存计算后的数据
+        # 保存带高度信息的堆垛结果
         final_stack_distribution_path = os.path.join(
             "result/final_stack_distribution/final_stack_distribution_plates_pso_sa.csv")
         df.to_csv(final_stack_distribution_path, index=False)
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
-        st.write("### Final Stack Distribution Table")
+        st.write("Final Stack Distribution Table")
 
-        # 读取 final_stack_distribution_plates.csv 文件
-        df = pd.read_csv(final_stack_distribution_path)
+        # 展示每个钢板的堆垛坐标信息
+        df_plate_distribution = pd.read_csv(final_stack_distribution_path)
+        st.dataframe(df_plate_distribution)
 
         # 初始化用于统计的字典
         height_dict = {}
@@ -1256,12 +1244,6 @@ if df is not None:
                 height_dict[(area, pos[0], pos[1])] = 0.0
                 plate_count_dict[(area, pos[0], pos[1])] = 0
 
-
-        # 检查库区和垛位是否在layout中
-        def is_valid_position(area, x, y):
-            return (area in layout) and ((int(x), int(y)) in layout[area])
-
-
         # 使用已有的 Stacking Height，而不是累加 Thickness
         for index, row in df.iterrows():
             area = row['Final Area']
@@ -1273,7 +1255,7 @@ if df is not None:
             x = int(x)
             y = int(y)
 
-            if is_valid_position(area, x, y):
+            if (area in layout) and ((x, y) in layout[area]):
                 # 更新该垛位的堆垛高度
                 height_dict[(area, x, y)] = stacking_height
 
@@ -1311,15 +1293,11 @@ if df is not None:
 
             results.append(result_entry)
 
-            # 将结果转换为 DataFrame
+        # 将结果转换为 DataFrame 并显示
         result_df = pd.DataFrame(results)
-
-        # 显示统计表
         st.write("Stacking Distribution Statistics Table:")
         st.dataframe(result_df)
 
         # 保存结果到 CSV 文件
         output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_pso_sa.csv'
         result_df.to_csv(output_file_heights, index=False)
-
-        # st.success(f"Stacking statistics saved to {output_file_heights}")
