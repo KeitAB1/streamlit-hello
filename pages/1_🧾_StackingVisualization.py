@@ -165,3 +165,21 @@ else:
         )
 
         st.plotly_chart(fig_total, use_container_width=True)
+
+
+        # 提供表格下载功能
+        def convert_df_to_csv(df):
+            return df.to_csv(index=False).encode('utf-8')
+
+
+        # 创建下载按钮
+        csv = convert_df_to_csv(df)
+        st.download_button(
+            label="Download data as CSV",
+            data=csv,
+            file_name=f'{algorithm_choice}_stack_distribution.csv',
+            mime='text/csv',
+        )
+
+        # 确保下载按钮出现在表格的下方
+        st.write(df.head())

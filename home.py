@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from concurrent.futures import ThreadPoolExecutor
 from auxiliary import InterfaceLayout as il
 
 # from optimization_functions import  minimize_stack_movements_and_turnover, minimize_outbound_energy_time_with_batch, \
@@ -27,10 +28,10 @@ os.makedirs(data_dir, exist_ok=True)
 # 定义保存路径为 test_data.csv
 test_data_path = os.path.join(data_dir, "test_data.csv")
 
-# st.title("Steel Plate Stacking Optimization")
-# 显示图标和标题
-icon_path = "data/introduction_src/icons/home_标题.png"
-il.display_icon_with_header(icon_path, "Steel Plate Stacking Optimization", font_size='45px')
+st.title("Steel Plate Stacking Optimization")
+# # 显示图标和标题
+# icon_path = "data/introduction_src/icons/home_标题.png"
+# il.display_icon_with_header(icon_path, "Steel Plate Stacking Optimization", font_size='45px')
 
 # 获取 data 文件夹下的所有 CSV 文件
 system_data_dir = "data"  # 系统数据集目录
@@ -190,9 +191,13 @@ if df is not None:
     vertical_speed = 15 * 1000 / 60  # 垂直速度：15m/min，转换为 mm/s
     stack_flip_time_per_plate = 10  # 每次翻垛需要10秒
 
-    # 传送带位置参数
-    conveyor_position_x = 2000  # 距离库区1-3的传送带水平距离
-    conveyor_position_y = 14000  # 距离库区4-6的传送带水平距离
+    # # 传送带位置参数
+    # conveyor_position_x = 2000  # 距离库区1-3的传送带水平距离
+    # conveyor_position_y = 14000  # 距离库区4-6的传送带水平距离
+
+    # 新增：入库口和出库口的坐标
+    inbound_point = (41500, 3000)  # 入库口坐标
+    outbound_point = (41500, 38000)  # 出库口坐标
 
     #  将交货时间从字符串转换为数值
     df['Delivery Time'] = pd.to_datetime(df['Delivery Time'])
@@ -201,35 +206,11 @@ if df is not None:
 
 
     # 计算入库或出库时间的通用函数
-    def calculate_movement_time(plate_idx, area, stack_positions, plates, horizontal_speed, vertical_speed,
-                                to_conveyor=True):
-        x, y = area_positions[area][plate_idx % len(area_positions[area])]
-        plate_length, plate_width = plates[plate_idx, 0], plates[plate_idx, 1]
-
-        # 如果是入库，计算到传送带的距离；否则计算到出库口的距离
-        if to_conveyor:
-            # 水平方向：从传送带中央移动到库区垛位
-            if area in [0, 1, 2]:  # 库区1、2、3
-                distance_to_location = conveyor_position_x  # 传送带到库区1-3的距离
-            else:  # 库区4、5、6
-                distance_to_location = conveyor_position_y  # 传送带到库区4-6的距离
-        else:
-            # 出库口距离：库区1-3距离出库口15000mm，库区4-6距离出库口3000mm
-            if area in [0, 1, 2]:
-                distance_to_location = 15000
-            else:
-                distance_to_location = 3000
-
-        # 计算移动距离
-        total_distance_x = abs(
-            distance_to_location - (x * (stack_dimensions[area][plate_idx % len(stack_dimensions[area])][0] + 500)))
-        total_distance_y = y * 1000  # 假设垛位之间的间距为1000mm
-
-        # 计算移动时间
-        time_to_move_x = total_distance_x / horizontal_speed
-        time_to_move_y = total_distance_y / vertical_speed
-
-        return time_to_move_x + time_to_move_y
+    # 计算水平距离和垂直距离的通用函数
+    def calculate_distance(x1, y1, x2, y2):
+        horizontal_distance = abs(x2 - x1)
+        vertical_distance = abs(y2 - y1)
+        return horizontal_distance, vertical_distance
 
 
     # 目标函数1：最小化翻垛次数
@@ -266,33 +247,90 @@ if df is not None:
 
     # 目标函数2：最小化出库能耗与时间
     def minimize_outbound_energy_time_with_batch(particle_positions, plates, heights):
-        total_energy_time = 0
+        total_time_energy = 0
 
-        # 批次排序，确保按Q1-Q15顺序出库
+        # 按批次将钢板索引分配
         sorted_batches = sorted(set(batches), key=lambda x: int(x[1:]))
         plate_indices_by_batch = {batch: [] for batch in sorted_batches}
 
-        # 按批次将钢板索引分配
+        # 将钢板按批次分配
         for plate_idx, plate in enumerate(plates):
             batch = plate[4]  # 批次信息在第5列（索引4）
             plate_indices_by_batch[batch].append(plate_idx)
 
-        # 按批次依次处理出库
+        # 计算水平和垂直距离的通用函数
+        def calculate_distance(x1, y1, x2, y2):
+            horizontal_distance = abs(x2 - x1)
+            vertical_distance = abs(y2 - y1)
+            return horizontal_distance, vertical_distance
+
+        # 取出钢板的时间，基于堆垛高度
+        def calculate_pick_time(plate_height):
+            return plate_height / vertical_speed
+
+        # 翻垛时间的计算，计算翻垛层数
+        def calculate_flip_time(plate_idx, particle_positions, heights):
+            # 查找当前堆垛位置上方的钢板数量
+            area = particle_positions[plate_idx]
+            current_height = heights[area]
+            plate_height = plates[plate_idx, 2]  # 当前钢板的厚度
+
+            # 如果当前堆垛的高度超过了当前钢板的高度，计算翻垛数量
+            if current_height > plate_height:
+                n_flip = int(current_height // plate_height)
+                t_flip_per = 10  # 每次翻垛时间，单位为秒
+                return n_flip * t_flip_per
+            else:
+                return 0
+
+        # 入库操作：计算每块钢板的入库时间和能耗
+        for plate_idx, position in enumerate(particle_positions):
+            area = position  # 获取钢板所在的库区
+            plate_height = plates[plate_idx, 2]  # 获取钢板厚度
+
+            # 获取钢板的坐标（根据area和layout的位置关系）
+            x, y = area_positions[area][plate_idx % len(area_positions[area])]
+
+            # 计算入库时间和能耗
+            inbound_horizontal_dist, inbound_vertical_dist = calculate_distance(x, y, inbound_point[0],
+                                                                                inbound_point[1])
+            inbound_time = (inbound_horizontal_dist / horizontal_speed) + (inbound_vertical_dist / vertical_speed)
+
+            # 更新堆垛高度
+            heights[area] += plate_height
+
+            # 记录入库时间和能耗
+            total_time_energy += inbound_time
+
+        # 出库操作：按批次顺序出库
         for batch in sorted_batches:
             for plate_idx in plate_indices_by_batch[batch]:
                 position = particle_positions[plate_idx]
                 area = position  # 获取钢板所在库区
                 plate_height = plates[plate_idx, 2]  # 获取钢板厚度
 
-                # 调用出库时间计算
-                outbound_time = calculate_movement_time(plate_idx, area, area_positions, plates, horizontal_speed,
-                                                        vertical_speed, to_conveyor=False)
+                # 获取钢板的坐标（根据area和layout的位置关系）
+                x, y = area_positions[area][plate_idx % len(area_positions[area])]
+
+                # 计算出库时间和能耗
+                outbound_horizontal_dist, outbound_vertical_dist = calculate_distance(x, y, outbound_point[0],
+                                                                                      outbound_point[1])
+                outbound_time = (outbound_horizontal_dist / horizontal_speed) + (
+                            outbound_vertical_dist / vertical_speed)
+
+                # 计算取出时间
+                pick_time = calculate_pick_time(plate_height)
+
+                # 计算翻垛时间
+                flip_time = calculate_flip_time(plate_idx, particle_positions, heights)
 
                 # 更新堆垛高度
                 heights[area] -= plate_height
-                total_energy_time += outbound_time
 
-        return total_energy_time
+                # 记录出库总时间，包括移动、取出和翻垛时间
+                total_time_energy += (outbound_time + pick_time + flip_time)
+
+        return total_time_energy
 
 
     # 目标函数3：最大化库存均衡度
@@ -1230,7 +1268,7 @@ if df is not None:
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        st.success("Stacking optimization completed！You can now visualize the results.")
+        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
         st.write("### Final Stack Distribution Table")
