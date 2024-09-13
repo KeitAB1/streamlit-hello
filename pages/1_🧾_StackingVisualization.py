@@ -11,12 +11,12 @@ else:
     st.title("Stack Visualization")
 
     # 在侧边栏中添加优化算法的选择
-    algorithm_choice = st.sidebar.selectbox("Select Optimization Algorithm", ["PSO", "GA", "SA (Simulated Annealing)","PSO + SA (Hybrid Optimization)"])
+    algorithm_choice = st.sidebar.selectbox("Select Optimization Algorithm", ["PSO (Particle Swarm Optimization)", "GA (Genetic Algorithm)", "SA (Simulated Annealing)","PSO + SA (Hybrid Optimization)"])
 
     # 根据选择的算法读取对应的文件
-    if algorithm_choice == "PSO":
+    if algorithm_choice == "PSO (Particle Swarm Optimization)":
         data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_pso.csv'
-    elif algorithm_choice == "GA":
+    elif algorithm_choice == "GA (Genetic Algorithm)":
         data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_ga.csv'
     elif algorithm_choice == "SA (Simulated Annealing)":
         data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_sa.csv'
