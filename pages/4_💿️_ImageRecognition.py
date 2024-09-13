@@ -92,7 +92,7 @@ def clear_image_history():
 def main():
     # st.title('图像识别系统')
     # 设置页面标题和自定义颜色样式
-    st.markdown("<h1 style='text-align: center; color: #ffa365;'>图像识别系统</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: black;'>图像识别系统</h1>", unsafe_allow_html=True)
     # 添加间距
     st.markdown("<br><br>", unsafe_allow_html=True)
 

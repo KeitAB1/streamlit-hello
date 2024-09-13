@@ -75,7 +75,7 @@ else:
 
 # 算法选择放在侧边栏
 with st.sidebar:
-    algorithms = ["PSO (Particle Swarm Optimization)", "GA (Genetic Algorithm)", "SA (Simulated Annealing)"]
+    algorithms = ["PSO (Particle Swarm Optimization)", "GA (Genetic Algorithm)", "SA (Simulated Annealing)", "PSO + SA (Hybrid Optimization)"]
     selected_algorithm = st.selectbox("Select Optimization Algorithm", algorithms)
 
     # 根据选择的算法动态显示相关参数设置
@@ -108,6 +108,30 @@ with st.sidebar:
         cooling_rate = st.slider("Cooling Rate", 0.0, 1.0, 0.9)
         min_temperature = st.number_input("Minimum Temperature", value=0.1)
         max_iterations_sa = st.number_input("Max Iterations", 1, 1000, 100)
+        lambda_1 = st.number_input("Lambda 1", value=1.0)
+        lambda_2 = st.number_input("Lambda 2", value=1.0)
+        lambda_3 = st.number_input("Lambda 3", value=1.0)
+        lambda_4 = st.number_input("Lambda 4", value=1.0)
+
+    elif selected_algorithm == "PSO + SA (Hybrid Optimization)":
+        st.subheader("PSO + SA Parameters")
+
+        # PSO Parameters
+        st.write("### PSO Parameters")
+        max_iter_pso = st.number_input("PSO Max Iterations", 1, 1000, 1)  # Use max_iter_pso instead of max_iter
+        w = st.slider("PSO Inertia Weight (w)", 0.0, 1.0, 0.5)
+        c1 = st.slider("PSO Cognitive Coefficient (c1)", 0.0, 4.0, 2.0)
+        c2 = st.slider("PSO Social Coefficient (c2)", 0.0, 4.0, 2.0)
+        st.write(f"Note: c1 + c2 should equal 4.0. Current sum: {c1 + c2}")
+
+        # SA Parameters
+        st.write("### SA Parameters")
+        initial_temperature = st.number_input("Initial Temperature (SA)", value=1000.0)
+        cooling_rate = st.slider("SA Cooling Rate", 0.0, 1.0, 0.9)
+        min_temperature = st.number_input("SA Minimum Temperature", value=0.1)
+        max_iterations_sa = st.number_input("SA Max Iterations", 1, 1000, 100)
+
+        # Common weights for both PSO and SA
         lambda_1 = st.number_input("Lambda 1", value=1.0)
         lambda_2 = st.number_input("Lambda 2", value=1.0)
         lambda_3 = st.number_input("Lambda 3", value=1.0)
@@ -428,17 +452,10 @@ if df is not None:
                 balance_penalty = maximize_inventory_balance_v2(position, plates)
                 space_utilization = maximize_space_utilization_v3(position, plates, Dki)
 
-                # 计算当前的总得分
-                if space_utilization == 0:
-                    space_utilization = 1e-6  # 避免除以零
                 score = (self.lambda_1 * combined_movement_turnover_penalty +
                          self.lambda_2 * energy_time_penalty +
                          self.lambda_3 * balance_penalty -
                          self.lambda_4 * space_utilization)
-
-                if np.isinf(score) or np.isnan(score):
-                    print(f"Invalid score detected: {score}")
-                    return np.inf
 
                 return score
 
@@ -447,9 +464,13 @@ if df is not None:
                 return np.inf
 
         def optimize(self):
+            # 默认从随机位置开始优化
+            return self.optimize_from_position(np.random.randint(0, self.num_positions, size=num_plates))
+
+        def optimize_from_position(self, initial_position):
             global heights
             current_temperature = self.initial_temperature
-            current_position = np.random.randint(0, self.num_positions, size=num_plates)  # 初始化随机位置
+            current_position = initial_position  # 使用传入的初始位置
             current_score = self.evaluate(current_position)
 
             self.best_position = current_position.copy()
@@ -483,7 +504,7 @@ if df is not None:
                 self.convergence_data.append([iteration + 1, self.best_score])
 
                 # 实时更新收敛曲线
-                self.update_convergence_plot(iteration + 1)  # 修复：传递当前迭代数
+                self.update_convergence_plot(iteration + 1)
 
                 # 打印每次迭代的最佳得分
                 print(
@@ -512,6 +533,60 @@ if df is not None:
             os.makedirs(convergence_data_dir, exist_ok=True)
             convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_sa.csv')
             convergence_data_df.to_csv(convergence_data_path, index=False)
+
+
+    class PSO_SA_Optimizer:
+        def __init__(self, num_particles, num_positions, w, c1, c2, max_iter_pso,
+                     initial_temperature, cooling_rate, min_temperature, max_iterations_sa,
+                     lambda_1, lambda_2, lambda_3, lambda_4):
+            # 初始化PSO参数
+            self.num_particles = num_particles
+            self.num_positions = num_positions
+            self.w = w
+            self.c1 = c1
+            self.c2 = c2
+            self.max_iter_pso = max_iter_pso
+            self.lambda_1 = lambda_1
+            self.lambda_2 = lambda_2
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+
+            # 初始化SA参数
+            self.initial_temperature = initial_temperature
+            self.cooling_rate = cooling_rate
+            self.min_temperature = min_temperature
+            self.max_iterations_sa = max_iterations_sa
+
+            self.pso_optimizer = PSO_with_Batch(
+                num_particles=num_particles,
+                num_positions=num_positions,
+                w=w, c1=c1, c2=c2, max_iter=max_iter_pso,
+                lambda_1=lambda_1, lambda_2=lambda_2,
+                lambda_3=lambda_3, lambda_4=lambda_4
+            )
+
+            self.sa_optimizer = SA_with_Batch(
+                initial_temperature=initial_temperature,
+                cooling_rate=cooling_rate,
+                min_temperature=min_temperature,
+                max_iterations=max_iterations_sa,
+                lambda_1=lambda_1, lambda_2=lambda_2,
+                lambda_3=lambda_3, lambda_4=lambda_4,
+                num_positions=num_positions
+            )
+
+        def optimize(self):
+            # 首先运行PSO优化
+            self.pso_optimizer.optimize()
+
+            # 获取PSO的最优解作为SA的初始解
+            initial_position_for_sa = self.pso_optimizer.gbest_position
+
+            # 使用SA在PSO的解附近进行局部优化
+            best_position_sa, best_score_sa = self.sa_optimizer.optimize_from_position(initial_position_for_sa)
+
+            # 返回SA优化的最优解
+            return best_position_sa, best_score_sa
 
 
     if selected_algorithm == "PSO (Particle Swarm Optimization)":
@@ -953,4 +1028,163 @@ if df is not None:
 
         # st.success(f"Stacking statistics saved to {output_file_heights}")
 
+    elif selected_algorithm == "PSO + SA (Hybrid Optimization)":
+        # 初始化 PSO + SA 优化器
+        pso_sa_optimizer = PSO_SA_Optimizer(
+            num_particles=30,
+            num_positions=len(Dki),
+            w=w,
+            c1=c1,
+            c2=c2,
+            max_iter_pso=max_iter_pso,
+            initial_temperature=initial_temperature,
+            cooling_rate=cooling_rate,
+            min_temperature=min_temperature,
+            max_iterations_sa=max_iterations_sa,
+            lambda_1=lambda_1,
+            lambda_2=lambda_2,
+            lambda_3=lambda_3,
+            lambda_4=lambda_4
+        )
 
+        # 开始优化
+        best_position_sa, best_score_sa = pso_sa_optimizer.optimize()
+
+        # 显示优化结果
+        st.write(f"Optimization complete. Best score: {best_score_sa}")
+
+        # 正确使用 best_position_sa 而不是 best_position
+        final_x = []
+        final_y = []
+        for i, position in enumerate(best_position_sa):  # 使用 best_position_sa 而不是 best_position
+            area = position
+            x, y = area_positions[area][i % len(area_positions[area])]  # 获取该位置的具体坐标
+            final_x.append(x)
+            final_y.append(y)
+
+        # 确保生成 'Final Area' 列，并将最优解的位置信息保存
+        df['Final Area'] = best_position_sa
+        df['Final X'] = final_x
+        df['Final Y'] = final_y
+
+        # 保存最终堆垛结果
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        df.to_csv(output_file_plates_with_batch, index=False)
+
+        st.success("Simulated Annealing optimization completed! You can now visualize the results.")
+
+        heights_dict = {}
+        df['Stacking Start Height'] = 0.0
+        df['Stacking Height'] = 0.0
+
+        for i in range(len(df)):
+            area = df.loc[i, 'Final Area']
+            x = df.loc[i, 'Final X']
+            y = df.loc[i, 'Final Y']
+            key = (area, x, y)
+            current_height = heights_dict.get(key, 0.0)
+            df.loc[i, 'Stacking Start Height'] = current_height
+            df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
+            heights_dict[key] = df.loc[i, 'Stacking Height']
+
+        # 保存计算后的数据
+        final_stack_distribution_path = os.path.join(
+            "result/final_stack_distribution/final_stack_distribution_plates_pso_sa.csv")
+        df.to_csv(final_stack_distribution_path, index=False)
+
+        # 设置 session state，允许可视化
+        st.session_state['optimization_done'] = True
+        st.success("Stacking optimization completed！You can now visualize the results.")
+
+        # 生成堆垛结果的统计表
+        st.write("### Final Stack Distribution Table")
+
+        # 读取 final_stack_distribution_plates.csv 文件
+        df = pd.read_csv(final_stack_distribution_path)
+
+        # 初始化用于统计的字典
+        height_dict = {}
+        plate_count_dict = {}
+
+        layout = {
+            0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第0库区的垛位
+            1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第1库区
+            2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],  # 第2库区
+            3: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第3库区
+            4: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第4库区
+            5: [(0, 0), (0, 1), (1, 0), (1, 1)]  # 第5库区
+        }
+
+        # 初始化每个库区的垛位高度和钢板计数
+        for area in layout.keys():
+            for pos in layout[area]:
+                height_dict[(area, pos[0], pos[1])] = 0.0
+                plate_count_dict[(area, pos[0], pos[1])] = 0
+
+
+        # 检查库区和垛位是否在layout中
+        def is_valid_position(area, x, y):
+            return (area in layout) and ((int(x), int(y)) in layout[area])
+
+
+        # 使用已有的 Stacking Height，而不是累加 Thickness
+        for index, row in df.iterrows():
+            area = row['Final Area']
+            x = row['Final X']
+            y = row['Final Y']
+            stacking_height = row['Stacking Height']  # 使用已计算的堆垛高度
+
+            # 确保 X 和 Y 为整数
+            x = int(x)
+            y = int(y)
+
+            if is_valid_position(area, x, y):
+                # 更新该垛位的堆垛高度
+                height_dict[(area, x, y)] = stacking_height
+
+                # 更新该垛位的钢板数量
+                plate_count_dict[(area, x, y)] += 1
+            else:
+                print(f"Warning: Invalid position ({area}, {x}, {y}) in row {index}")
+
+        # 初始化列表用于存储最终结果
+        results = []
+
+        # 填充每个库区的垛位高度和钢板数量
+        for area, positions in layout.items():
+            total_plates = 0
+            heights = []
+
+            for pos in positions:
+                height = height_dict[(area, pos[0], pos[1])]
+                heights.append(height)
+                total_plates += plate_count_dict[(area, pos[0], pos[1])]
+
+            # 计算平均高度
+            average_height = np.mean(heights)
+
+            # 记录每个库区的堆垛信息
+            result_entry = {
+                'Area': area,
+                'Total Plates': total_plates,
+                'Average Height': average_height
+            }
+
+            # 记录每个垛位的高度
+            for i, pos in enumerate(positions):
+                result_entry[f'Position {i + 1}'] = height_dict[(area, pos[0], pos[1])]
+
+            results.append(result_entry)
+
+            # 将结果转换为 DataFrame
+        result_df = pd.DataFrame(results)
+
+        # 显示统计表
+        st.write("Stacking Distribution Statistics Table:")
+        st.dataframe(result_df)
+
+        # 保存结果到 CSV 文件
+        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_pso_sa.csv'
+        result_df.to_csv(output_file_heights, index=False)
+
+        # st.success(f"Stacking statistics saved to {output_file_heights}")
