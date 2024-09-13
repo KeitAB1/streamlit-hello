@@ -1,45 +1,23 @@
 import streamlit as st
-import pytesseract
+import cv2
+import numpy as np
 from PIL import Image
 import pandas as pd
 import os
 from datetime import datetime
 from auxiliary import InterfaceLayout as il
+from auxiliary import Tensseract_Test as ts
+import pytesseract
 
-CSV_FILE_PATH = 'recognized_results.csv'
-IMAGE_SAVE_DIR = 'result/ImageRecognition'
+IMAGE_SAVE_DIR = 'result/ImageRecognition_Img'
+CSV_FILE_DIR = 'result/ImageRecognition_CSV'
+CSV_FILE_PATH = CSV_FILE_DIR + '/recognized_results.csv'
 
 # 创建结果保存目录
 if not os.path.exists(IMAGE_SAVE_DIR):
     os.makedirs(IMAGE_SAVE_DIR)
-
-
-def ocr_image(image):
-    """对传入的图像进行OCR识别"""
-    return pytesseract.image_to_string(image, lang='chi_sim')
-
-
-def process_images_from_folder(folder_path, progress_placeholder):
-    """对文件夹中的所有图像进行OCR识别并返回结果"""
-    data = []
-    image_files = [f for f in os.listdir(folder_path) if f.endswith(('.jpg', '.png'))]
-    total_images = len(image_files)
-
-    if total_images == 0:
-        return None, 0  # 如果文件夹中没有图片，返回None
-
-    for idx, file_name in enumerate(image_files):
-        image_path = os.path.join(folder_path, file_name)
-        image = Image.open(image_path)
-        recognized_text = ocr_image(image)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        # 保存处理过的图片到指定目录
-        image.save(os.path.join(IMAGE_SAVE_DIR, file_name))
-        data.append({"Filename": file_name, "Recognized Text": recognized_text, "Timestamp": timestamp})
-
-        # 更新进度条
-        progress_placeholder.progress((idx + 1) / total_images)
-    return data, total_images
+if not os.path.exists(CSV_FILE_DIR):
+    os.makedirs(CSV_FILE_DIR)
 
 
 def process_uploaded_images(uploaded_files, progress_placeholder):
@@ -49,7 +27,7 @@ def process_uploaded_images(uploaded_files, progress_placeholder):
 
     for idx, uploaded_file in enumerate(uploaded_files):
         image = Image.open(uploaded_file)
-        recognized_text = ocr_image(image)
+        recognized_text = ts.ocr_image(image)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # 保存上传的图片到指定目录
         image.save(os.path.join(IMAGE_SAVE_DIR, uploaded_file.name))
@@ -68,6 +46,7 @@ def append_to_csv(data, file_path):
         df.to_csv(file_path, mode='a', header=False, index=False)  # 追加模式，不写入header
     else:
         df.to_csv(file_path, index=False)  # 如果文件不存在，写入header
+        df.to_csv(file_path, mode='a', header=False, index=False)
 
 
 def clear_csv(file_path):
@@ -88,92 +67,125 @@ def clear_image_history():
         os.remove(file_path)
 
 
+def calculate_text_area_ratio(image):
+    """
+    使用Tesseract OCR检测图片中文字的占比
+    :param image: PIL image
+    :return: 文字占图片面积的比例
+    """
+    # 将PIL图像转换为OpenCV格式
+    open_cv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+
+    # 使用pytesseract获取图像中文字的bounding box
+    h, w, _ = open_cv_image.shape
+    boxes = pytesseract.image_to_boxes(open_cv_image)
+
+    total_text_area = 0
+    for box in boxes.splitlines():
+        b = box.split()
+        x, y, x2, y2 = int(b[1]), int(b[2]), int(b[3]), int(b[4])
+        text_area = (x2 - x) * (y2 - y)
+        total_text_area += text_area
+
+    image_area = w * h
+    text_area_ratio = total_text_area / image_area
+
+    return text_area_ratio
+
+
+def display_image_with_rotation(image_path):
+    """
+    显示图片，并检测图片中文字占比，决定是否旋转。
+    """
+    image = Image.open(image_path)
+
+    # 计算文字内容在图像中的面积占比
+    text_area_ratio = calculate_text_area_ratio(image)
+
+    # 如果文字占比小于50%，旋转90度
+    if text_area_ratio < 0.01 :
+        image = image.rotate(90, expand=True)  # 如果满足条件，则旋转90度
+
+    # 显示图片
+    st.sidebar.image(image, caption=os.path.basename(image_path), use_column_width=True)
+
+
 # Streamlit 主程序
 def main():
-    # st.title('图像识别系统')
-    # 设置页面标题和自定义颜色样式
-    st.markdown("<h1 style='text-align: center; color: black;'>图像识别系统</h1>", unsafe_allow_html=True)
-    # 添加间距
+    st.markdown("<h1 style='text-align: center; color: black;'>Image Recognition System</h1>", unsafe_allow_html=True)
     st.markdown("<br><br>", unsafe_allow_html=True)
 
     # 选择图像输入方式
     icon_path = "data/introduction_src/icons/ImgRec_选择.png"
-    il.display_icon_with_header(icon_path, "选择图像输入方式")
-    option = st.selectbox('请选择', ['项目文件夹中的图片', '手动上传'])
+    il.display_icon_with_header(icon_path, "Select Image Input Method")
+    option = st.selectbox('Please choose', ['Images from project folder', 'Manual upload'])
 
-    if option == '项目文件夹中的图片':
+    if option == 'Images from project folder':
         base_folder_path = 'data/plate_img'
-        # 获取所有以“Image_src”+序号命名的子文件夹
         subfolders = [f for f in os.listdir(base_folder_path) if
                       os.path.isdir(os.path.join(base_folder_path, f)) and f.startswith('Image_src')]
 
         if subfolders:
-            selected_subfolder = st.selectbox('请选择一个图片集文件夹', subfolders)
+            selected_subfolder = st.selectbox('Please select an image folder', subfolders)
             folder_path = os.path.join(base_folder_path, selected_subfolder)
 
-            if st.button('开始识别'):
+            if st.button('Start Recognition'):
                 if os.path.exists(folder_path):
-                    # 创建进度条占位符
                     progress_placeholder = st.empty()
-
-                    # 处理文件夹中的图像
-                    data, total_images = process_images_from_folder(folder_path, progress_placeholder)
+                    data, total_images = ts.process_images_from_folder(folder_path, progress_placeholder,
+                                                                       IMAGE_SAVE_DIR)
 
                     if total_images == 0:
-                        st.warning(f'文件夹 {selected_subfolder} 中未查找到图片！')
+                        st.warning(f'No images found in folder {selected_subfolder}!')
                     elif data:
                         append_to_csv(data, CSV_FILE_PATH)
                         df = pd.DataFrame(data)
                         st.dataframe(df)  # 实时显示当前处理的图片结果
-                        st.success(f'识别完成！结果已保存到 recognized_results.csv（文件夹：{selected_subfolder}）')
+                        st.success(f'Recognition complete! Results saved to recognized_results.csv (Folder: {selected_subfolder})')
                 else:
-                    st.error(f'文件夹 {folder_path} 不存在！')
+                    st.error(f'Folder {folder_path} does not exist!')
         else:
-            st.error('未找到符合条件的文件夹！')
+            st.error('No eligible folders found!')
 
-    elif option == '手动上传':
-        # 手动上传多张图像
-        uploaded_files = st.file_uploader('上传图像文件', type=['jpg', 'png'], accept_multiple_files=True)
+    elif option == 'Manual upload':
+        uploaded_files = st.file_uploader('Upload image files', type=['jpg', 'png'], accept_multiple_files=True)
         if uploaded_files:
-            if st.button('开始识别'):
-                # 创建进度条占位符
+            if st.button('Start Recognition'):
                 progress_placeholder = st.empty()
-
                 data = process_uploaded_images(uploaded_files, progress_placeholder)
                 if data:
                     append_to_csv(data, CSV_FILE_PATH)
                     df = pd.DataFrame(data)
                     st.dataframe(df)  # 实时显示当前处理的图片结果
-                    st.success('识别完成！结果已保存到 recognized_results.csv')
+                    st.success('Recognition complete! Results saved to recognized_results.csv')
 
     icon_path = "data/introduction_src/icons/ImgRec_表格.png"
-    il.display_icon_with_header(icon_path, "CSV文件中的现有内容")
+    il.display_icon_with_header(icon_path, "Current Content in CSV File")
 
-    if st.button('清空CSV文件内容'):
+    if st.button('Clear CSV File'):
         clear_csv(CSV_FILE_PATH)
-        st.success('CSV文件内容已清空')
+        st.success('CSV file content cleared')
 
     if os.path.exists(CSV_FILE_PATH):
         if is_csv_empty(CSV_FILE_PATH):
-            st.write('暂无识别数据')
+            st.write('No recognition data available')
         else:
             df = pd.read_csv(CSV_FILE_PATH)
             st.dataframe(df)
 
     # 侧边栏展示历史识别图片
-    st.sidebar.title("历史识别图片")
+    st.sidebar.title("Recognized Image History")
     image_files = os.listdir(IMAGE_SAVE_DIR)
     if image_files:
-        selected_image = st.sidebar.selectbox("选择图片查看", image_files)
+        selected_image = st.sidebar.selectbox("Select an image to view", image_files)
         image_path = os.path.join(IMAGE_SAVE_DIR, selected_image)
-        st.sidebar.image(image_path, caption=selected_image, use_column_width=True)
+        display_image_with_rotation(image_path)  # 使用新方法显示图片
 
-        # 添加清空图片历史按钮
-        if st.sidebar.button('清空图片历史'):
+        if st.sidebar.button('Clear Image History'):
             clear_image_history()
-            st.sidebar.success('图片历史已清空')
+            st.sidebar.success('Image history cleared')
     else:
-        st.sidebar.write('暂无历史识别图片')
+        st.sidebar.write('No recognized image history available')
 
 
 if __name__ == '__main__':

@@ -749,18 +749,29 @@ if df is not None:
                 num_positions=num_positions
             )
 
+            self.convergence_data_pso_sa = []  # PSO + SA 的单独收敛数据
+
         def optimize(self):
             # 首先运行PSO优化
             self.pso_optimizer.optimize()
 
-            # 获取PSO的最优解作为SA的初始解
+            # 获取PSO的最优解，作为SA的初始解
             initial_position_for_sa = self.pso_optimizer.gbest_position
 
-            # 使用SA在PSO的解附近进行局部优化
+            # 使用SA在PSO的解基础上进行局部优化
             best_position_sa, best_score_sa = self.sa_optimizer.optimize_from_position(initial_position_for_sa)
 
-            # 返回SA优化的最优解
+            # 保存PSO + SA的收敛数据
+            self.save_convergence_data_pso_sa()
+
+            # 返回SA优化的最优解和得分
             return best_position_sa, best_score_sa
+
+        def save_convergence_data_pso_sa(self):
+            # 将PSO + SA的收敛数据保存到新的文件
+            convergence_data_df = pd.DataFrame(self.convergence_data_pso_sa, columns=['Iteration', 'Best Score'])
+            convergence_data_path = os.path.join(convergence_dir, 'convergence_data_psosa.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
 
 
     if selected_algorithm == "PSO (Particle Swarm Optimization)":
