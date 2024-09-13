@@ -120,7 +120,6 @@ if df is not None:
 
 
     # 目标函数1：最小化翻垛次数
-    # 目标函数1：最小化翻垛次数
     def minimize_stack_movements_and_turnover(particle_positions, heights, plates, delivery_times, batches,
                                               weight_movement=1.0, weight_turnover=1.0):
         num_movements = 0
