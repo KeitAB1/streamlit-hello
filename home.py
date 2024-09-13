@@ -27,10 +27,8 @@ os.makedirs(data_dir, exist_ok=True)
 # 定义保存路径为 test_data.csv
 test_data_path = os.path.join(data_dir, "test_data.csv")
 
-# st.title("Steel Plate Stacking Optimization")
-# 显示图标和标题
-icon_path = "data/introduction_src/icons/home_标题.png"
-il.display_icon_with_header(icon_path, "Steel Plate Stacking Optimization", font_size='45px')
+st.title("Steel Plate Stacking Optimization")
+
 
 # 获取 data 文件夹下的所有 CSV 文件
 system_data_dir = "data"  # 系统数据集目录
@@ -75,7 +73,7 @@ else:
 
 # 算法选择放在侧边栏
 with st.sidebar:
-    algorithms = ["PSO (Particle Swarm Optimization)", "GA (Genetic Algorithm)", "SA (Simulated Annealing)", "PSO + SA (Hybrid Optimization)"]
+    algorithms = ["SA (Simulated Annealing)", "GA (Genetic Algorithm)", "PSO (Particle Swarm Optimization)", "PSO + SA (Hybrid Optimization)"]
     selected_algorithm = st.selectbox("Select Optimization Algorithm", algorithms)
 
     # 根据选择的算法动态显示相关参数设置
@@ -132,6 +130,7 @@ with st.sidebar:
         max_iterations_sa = st.number_input("SA Max Iterations", 1, 1000, 100)
 
         # Common weights for both PSO and SA
+        st.write("### Common Weights")
         lambda_1 = st.number_input("Lambda 1", value=1.0)
         lambda_2 = st.number_input("Lambda 2", value=1.0)
         lambda_3 = st.number_input("Lambda 3", value=1.0)
@@ -777,7 +776,7 @@ if df is not None:
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        st.success("Stacking optimization completed！You can now visualize the results.")
+        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
         st.write("### Final Stack Distribution Table")
@@ -925,7 +924,7 @@ if df is not None:
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        st.success("Stacking optimization completed！You can now visualize the results.")
+        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
         st.write("### Final Stack Distribution Table")
@@ -1069,7 +1068,7 @@ if df is not None:
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        st.success("Stacking optimization completed！You can now visualize the results.")
+        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
         st.write("### Final Stack Distribution Table")
@@ -1207,7 +1206,7 @@ if df is not None:
         output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
         df.to_csv(output_file_plates_with_batch, index=False)
 
-        st.success("Simulated Annealing optimization completed! You can now visualize the results.")
+        st.success("PSO + SA hybrid optimization completed！ You can now visualize the results.")
 
         heights_dict = {}
         df['Stacking Start Height'] = 0.0
@@ -1230,7 +1229,7 @@ if df is not None:
 
         # 设置 session state，允许可视化
         st.session_state['optimization_done'] = True
-        st.success("Stacking optimization completed！You can now visualize the results.")
+        # st.success("Stacking optimization completed！You can now visualize the results.")
 
         # 生成堆垛结果的统计表
         st.write("### Final Stack Distribution Table")
