@@ -14,15 +14,21 @@ available_algorithms = [f for f in os.listdir(convergence_data_dir) if f.endswit
 def extract_algorithm_name(file_name):
     base_name = os.path.basename(file_name)
     if "psosa" in base_name:
-        return "pso_sa"
+        return "PSO_SA"
     elif "ga" in base_name:
-        return "ga"
+        return "GA"
     elif "pso" in base_name:
-        return "pso"
+        return "PSO"
     elif "sa" in base_name:
-        return "sa"
+        return "SA"
     elif "aco" in base_name:
-        return "aco"
+        return "ACO"
+    elif "de" in base_name:
+        return "DE"
+    elif "coea" in base_name:
+        return "CoEA"
+    elif "eda" in base_name:
+        return "EDA"
     else:
         return "unknown"
 
@@ -84,7 +90,7 @@ else:
         st.sidebar.title("Convergence Curve Settings")
 
         # 用户选择要比较的算法，默认只选中 SA
-        selected_algorithms = st.sidebar.multiselect("Select Algorithms for Comparison", algorithm_names, default=["sa"])
+        selected_algorithms = st.sidebar.multiselect("Select Algorithms for Comparison", algorithm_names, default=["SA"])
 
         # 用户选择最大显示轮数，默认显示 10 轮
         if selected_algorithms:

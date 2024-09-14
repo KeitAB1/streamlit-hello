@@ -76,7 +76,9 @@ else:
 
 # 算法选择放在侧边栏
 with st.sidebar:
-    algorithms = ["SA (Simulated Annealing)", "GA (Genetic Algorithm)", "PSO (Particle Swarm Optimization)", "PSO + SA (Hybrid Optimization)"]
+    algorithms = ["SA (Simulated Annealing)", "GA (Genetic Algorithm)", "PSO (Particle Swarm Optimization)",
+                  "PSO + SA (Hybrid Optimization)", "ACO (Ant Colony Optimization)", "DE (Differential Evolution)",
+                  "CoEA (Co-Evolutionary Algorithm)", "EDA (Estimation of Distribution Algorithm)"]
     selected_algorithm = st.selectbox("Select Optimization Algorithm", algorithms)
 
     # 根据选择的算法动态显示相关参数设置
@@ -119,7 +121,7 @@ with st.sidebar:
 
         # PSO Parameters
         st.write("### PSO Parameters")
-        max_iter_pso = st.number_input("PSO Max Iterations", 1, 1000, 1)  # Use max_iter_pso instead of max_iter
+        max_iter_pso = st.number_input("PSO Max Iterations", 1, 1000, 1)
         w = st.slider("PSO Inertia Weight (w)", 0.0, 1.0, 0.5)
         c1 = st.slider("PSO Cognitive Coefficient (c1)", 0.0, 4.0, 2.0)
         c2 = st.slider("PSO Social Coefficient (c2)", 0.0, 4.0, 2.0)
@@ -137,6 +139,52 @@ with st.sidebar:
         lambda_2 = st.number_input("Lambda 2", value=1.0)
         lambda_3 = st.number_input("Lambda 3", value=1.0)
         lambda_4 = st.number_input("Lambda 4", value=1.0)
+
+    elif selected_algorithm == "ACO (Ant Colony Optimization)":
+        st.subheader("ACO Parameters")
+        max_iter = st.number_input("Max Iterations", 1, 1000, 5)  # 默认迭代轮数为5
+        num_ants = st.slider("Number of Ants", 10, 100, 50)
+        alpha = st.slider("Pheromone Importance (α)", 0.0, 5.0, 1.0)
+        beta = st.slider("Heuristic Importance (β)", 0.0, 5.0, 2.0)
+        evaporation_rate = st.slider("Evaporation Rate", 0.0, 1.0, 0.5)
+        q = st.number_input("Pheromone Constant (Q)", 1.0, 1000.0, 100.0)
+        lambda_1 = st.number_input("Lambda 1", value=1.0)
+        lambda_2 = st.number_input("Lambda 2", value=1.0)
+        lambda_3 = st.number_input("Lambda 3", value=1.0)
+        lambda_4 = st.number_input("Lambda 4", value=1.0)
+
+    elif selected_algorithm == "DE (Differential Evolution)":
+        st.subheader("DE Parameters")
+        max_iter = st.number_input("Max Iterations", 1, 1000, 100)
+        F = st.slider("Mutation Factor (F)", 0.0, 2.0, 0.5)
+        CR = st.slider("Crossover Rate (CR)", 0.0, 1.0, 0.9)
+        pop_size = st.slider("Population Size", 10, 200, 50)
+        lambda_1 = st.number_input("Lambda 1", value=1.0)
+        lambda_2 = st.number_input("Lambda 2", value=1.0)
+        lambda_3 = st.number_input("Lambda 3", value=1.0)
+        lambda_4 = st.number_input("Lambda 4", value=1.0)
+
+    elif selected_algorithm == "CoEA (Co-Evolutionary Algorithm)":
+        st.subheader("Co-Evolutionary Algorithm Parameters")
+        pop_size = st.slider("Population Size", 10, 200, 50)
+        F = st.slider("Mutation Factor (F)", 0.0, 2.0, 0.5)
+        CR = st.slider("Crossover Rate (CR)", 0.0, 1.0, 0.9)
+        max_iter = st.number_input("Max Iterations", 1, 1000, 100)
+        lambda_1 = st.number_input("Lambda 1 (Height Weight)", value=1.0)
+        lambda_2 = st.number_input("Lambda 2 (Turnover Weight)", value=1.0)
+        lambda_3 = st.number_input("Lambda 3 (Balance Weight)", value=1.0)
+        lambda_4 = st.number_input("Lambda 4 (Space Utilization Weight)", value=1.0)
+
+    elif selected_algorithm == "EDA (Estimation of Distribution Algorithm)":
+        st.subheader("EDA Parameters")
+        pop_size = st.slider("Population Size", 10, 200, 50)
+        max_iter = st.number_input("Max Iterations", 1, 1000, 100)
+        lambda_1 = st.number_input("Lambda 1 (Height Weight)", value=1.0)
+        lambda_2 = st.number_input("Lambda 2 (Turnover Weight)", value=1.0)
+        lambda_3 = st.number_input("Lambda 3 (Balance Weight)", value=1.0)
+        lambda_4 = st.number_input("Lambda 4 (Space Utilization Weight)", value=1.0)
+
+
 
 # 动态显示收敛曲线的占位符
 convergence_plot_placeholder = st.empty()
@@ -205,12 +253,6 @@ if df is not None:
     delivery_times = (df['Delivery Time'] - df['Entry Time']).dt.days.values
 
 
-    # 计算入库或出库时间的通用函数
-    # 计算水平距离和垂直距离的通用函数
-    def calculate_distance(x1, y1, x2, y2):
-        horizontal_distance = abs(x2 - x1)
-        vertical_distance = abs(y2 - y1)
-        return horizontal_distance, vertical_distance
 
 
     # 目标函数1：最小化翻垛次数
@@ -777,6 +819,487 @@ if df is not None:
             # 将PSO + SA的收敛数据保存到新的文件
             convergence_data_df = pd.DataFrame(self.convergence_data_pso_sa, columns=['Iteration', 'Best Score'])
             convergence_data_path = os.path.join(convergence_dir, 'convergence_data_psosa.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
+
+
+    class ACO_with_Batch:
+        def __init__(self, num_ants, num_positions, alpha, beta, evaporation_rate, q, max_iter, lambda_1, lambda_2,
+                     lambda_3, lambda_4):
+            self.num_ants = num_ants  # 蚂蚁数量
+            self.num_positions = num_positions  # 库区/垛位数量
+            self.alpha = alpha  # 信息素重要程度因子
+            self.beta = beta  # 启发因子重要程度因子
+            self.evaporation_rate = evaporation_rate  # 信息素蒸发速率
+            self.q = q  # 信息素强度
+            self.max_iter = max_iter  # 最大迭代次数
+            self.lambda_1 = lambda_1  # 目标函数中的权重参数
+            self.lambda_2 = lambda_2
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+            self.pheromone_matrix = np.ones((num_plates, num_positions))  # 信息素矩阵，初始化为1
+            self.best_score = np.inf
+            self.best_position = None
+            self.convergence_data = []  # 用于保存收敛数据
+
+        def optimize(self):
+            global heights
+            for iteration in range(self.max_iter):
+                all_ant_positions = []  # 用于存储每只蚂蚁的路径
+                all_ant_scores = []  # 用于存储每只蚂蚁的适应度
+
+                for ant in range(self.num_ants):
+                    ant_position = self.construct_solution()  # 为每只蚂蚁构建解
+                    all_ant_positions.append(ant_position)
+
+                    # 计算每只蚂蚁的解的得分
+                    temp_heights = heights.copy()
+                    combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
+                        ant_position, temp_heights, plates, delivery_times, batches)
+                    energy_time_penalty = minimize_outbound_energy_time_with_batch(ant_position, plates, temp_heights)
+                    balance_penalty = maximize_inventory_balance_v2(ant_position, plates)
+                    space_utilization = maximize_space_utilization_v3(ant_position, plates, Dki)
+
+                    score = (self.lambda_1 * combined_movement_turnover_penalty +
+                             self.lambda_2 * energy_time_penalty +
+                             self.lambda_3 * balance_penalty -
+                             self.lambda_4 * space_utilization)
+
+                    all_ant_scores.append(score)
+
+                    # 更新最优解
+                    if score < self.best_score:
+                        self.best_score = score
+                        self.best_position = ant_position.copy()
+
+                # 信息素更新
+                self.update_pheromones(all_ant_positions, all_ant_scores)
+
+                # 保存收敛数据
+                self.convergence_data.append([iteration + 1, self.best_score])
+                self.update_convergence_plot(iteration + 1)
+                print(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.best_score}')
+
+            self.update_final_heights()
+
+        def construct_solution(self):
+            # 根据信息素和启发因子为蚂蚁构建解
+            solution = []
+            for plate_idx in range(num_plates):
+                probabilities = self.calculate_transition_probabilities(plate_idx)
+                position = np.random.choice(self.num_positions, p=probabilities)
+                solution.append(position)
+            return np.array(solution)
+
+        def calculate_transition_probabilities(self, plate_idx):
+            # 计算从当前钢板到不同堆垛位置的选择概率
+            pheromones = self.pheromone_matrix[plate_idx]
+            desirability = 1.0 / (np.arange(1, self.num_positions + 1))  # 启发因子
+
+            # 根据当前堆垛高度调整概率，使得堆垛较低的区域更有吸引力
+            stack_heights = np.array([heights[pos] for pos in range(self.num_positions)])
+            height_bias = 1.0 / (stack_heights + 1)  # 堆垛越低，偏好越高
+
+            probabilities = (pheromones ** self.alpha) * (desirability ** self.beta) * height_bias
+            return probabilities / probabilities.sum()  # 归一化概率
+
+        def update_pheromones(self, all_ant_positions, all_ant_scores):
+            # 信息素蒸发
+            self.pheromone_matrix *= (1 - self.evaporation_rate)
+
+            # 信息素强化
+            for ant_idx, score in enumerate(all_ant_scores):
+                for plate_idx, position in enumerate(all_ant_positions[ant_idx]):
+                    self.pheromone_matrix[plate_idx, position] += self.q / score
+
+        def update_final_heights(self):
+            global heights
+            heights = np.zeros(len(Dki))
+            for plate_idx, position in enumerate(self.best_position):
+                area = position
+                heights[area] += plates[plate_idx, 2]
+
+        def update_convergence_plot(self, current_iteration):
+            # 动态更新收敛曲线
+            iteration_data = [x[0] for x in self.convergence_data]
+            score_data = [x[1] for x in self.convergence_data]
+
+            plt.figure(figsize=(8, 4))
+            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
+            plt.xlabel('Iterations')
+            plt.ylabel('Best Score')
+            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.best_score}')
+            plt.legend()
+
+            # 使用 Streamlit 的空占位符更新图表
+            convergence_plot_placeholder.pyplot(plt)
+
+            # 保存收敛数据到 CSV 文件
+            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
+            convergence_data_dir = "result/ConvergenceData"
+            os.makedirs(convergence_data_dir, exist_ok=True)
+            convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_aco.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
+
+    class DE_with_Batch:
+        def __init__(self, pop_size, num_positions, F, CR, max_iter, lambda_1, lambda_2, lambda_3, lambda_4):
+            self.pop_size = pop_size  # 种群大小
+            self.num_positions = num_positions  # 库区/垛位数量
+            self.F = F  # 缩放因子 (mutation factor)
+            self.CR = CR  # 交叉概率 (crossover rate)
+            self.max_iter = max_iter  # 最大迭代次数
+            self.lambda_1 = lambda_1  # 目标函数中的权重参数
+            self.lambda_2 = lambda_2
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+            self.population = np.random.randint(0, num_positions, size=(pop_size, num_plates))  # 随机初始化种群
+            self.best_position = None  # 最佳解
+            self.best_score = np.inf  # 最优得分
+            self.convergence_data = []  # 用于保存收敛数据
+
+        def optimize(self):
+            global heights
+            for iteration in range(self.max_iter):
+                new_population = []
+                for i in range(self.pop_size):
+                    # 选择三个随机个体
+                    indices = list(range(self.pop_size))
+                    indices.remove(i)
+                    a, b, c = np.random.choice(indices, 3, replace=False)
+
+                    # 变异操作
+                    mutant = np.clip(self.population[a] + self.F * (self.population[b] - self.population[c]), 0,
+                                     self.num_positions - 1).astype(int)
+
+                    # 交叉操作
+                    trial = np.copy(self.population[i])
+                    for j in range(num_plates):
+                        if np.random.rand() < self.CR:
+                            trial[j] = mutant[j]
+
+                    # 计算原始个体和新个体的适应度
+                    temp_heights_original = heights.copy()
+                    temp_heights_trial = heights.copy()
+
+                    original_score = self.calculate_fitness(self.population[i], temp_heights_original)
+                    trial_score = self.calculate_fitness(trial, temp_heights_trial)
+
+                    # 选择操作，保留适应度更好的个体
+                    if trial_score < original_score:
+                        new_population.append(trial)
+                        if trial_score < self.best_score:
+                            self.best_score = trial_score
+                            self.best_position = trial
+                    else:
+                        new_population.append(self.population[i])
+
+                # 更新种群
+                self.population = np.array(new_population)
+
+                # 保存收敛数据
+                self.convergence_data.append([iteration + 1, self.best_score])
+                self.update_convergence_plot(iteration + 1)
+
+                print(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.best_score}')
+
+            self.update_final_heights()
+
+        def calculate_fitness(self, individual, temp_heights):
+            # 计算个体的适应度得分
+            combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
+                individual, temp_heights, plates, delivery_times, batches)
+            energy_time_penalty = minimize_outbound_energy_time_with_batch(individual, plates, temp_heights)
+            balance_penalty = maximize_inventory_balance_v2(individual, plates)
+            space_utilization = maximize_space_utilization_v3(individual, plates, Dki)
+
+            score = (self.lambda_1 * combined_movement_turnover_penalty +
+                     self.lambda_2 * energy_time_penalty +
+                     self.lambda_3 * balance_penalty -
+                     self.lambda_4 * space_utilization)
+
+            return score
+
+        def update_final_heights(self):
+            global heights
+            heights = np.zeros(len(Dki))
+            for plate_idx, position in enumerate(self.best_position):
+                area = position
+                heights[area] += plates[plate_idx, 2]
+
+        def update_convergence_plot(self, current_iteration):
+            # 动态更新收敛曲线
+            iteration_data = [x[0] for x in self.convergence_data]
+            score_data = [x[1] for x in self.convergence_data]
+
+            plt.figure(figsize=(8, 4))
+            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
+            plt.xlabel('Iterations')
+            plt.ylabel('Best Score')
+            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.best_score}')
+            plt.legend()
+
+            # 使用 Streamlit 的空占位符更新图表
+            convergence_plot_placeholder.pyplot(plt)
+
+            # 保存收敛数据到 CSV 文件
+            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
+            convergence_data_dir = "result/ConvergenceData"
+            os.makedirs(convergence_data_dir, exist_ok=True)
+            convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_de.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
+
+    class CoEA_with_Batch:
+        def __init__(self, pop_size, num_positions, F, CR, max_iter, lambda_1, lambda_2, lambda_3, lambda_4):
+            self.pop_size = pop_size  # 种群大小
+            self.num_positions = num_positions  # 库区/垛位数量
+            self.F = F  # 缩放因子
+            self.CR = CR  # 交叉概率
+            self.max_iter = max_iter  # 最大迭代次数
+            self.lambda_1 = lambda_1  # 高度相关的权重参数
+            self.lambda_2 = lambda_2  # 翻垛相关的权重参数
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+
+            # 初始化两个种群，一个专注于堆垛高度，一个专注于翻垛次数
+            self.height_population = np.random.randint(0, num_positions, size=(pop_size, num_plates))
+            self.turnover_population = np.random.randint(0, num_positions, size=(pop_size, num_plates))
+
+            self.best_height_position = None
+            self.best_turnover_position = None
+            self.best_score = np.inf
+            self.convergence_data = []  # 保存收敛数据
+
+        def optimize(self):
+            global heights
+            for iteration in range(self.max_iter):
+                new_height_population = []
+                new_turnover_population = []
+
+                # 演化堆垛高度相关种群
+                for i in range(self.pop_size):
+                    height_trial = self.evolve_individual(self.height_population, i)
+                    temp_heights = heights.copy()
+                    height_score = self.calculate_height_fitness(height_trial, temp_heights)
+
+                    if height_score < self.calculate_height_fitness(self.height_population[i], heights):
+                        new_height_population.append(height_trial)
+                        if height_score < self.best_score:
+                            self.best_score = height_score
+                            self.best_height_position = height_trial
+                    else:
+                        new_height_population.append(self.height_population[i])
+
+                # 演化翻垛次数相关种群
+                for i in range(self.pop_size):
+                    turnover_trial = self.evolve_individual(self.turnover_population, i)
+                    temp_heights = heights.copy()
+                    turnover_score = self.calculate_turnover_fitness(turnover_trial, temp_heights)
+
+                    if turnover_score < self.calculate_turnover_fitness(self.turnover_population[i], heights):
+                        new_turnover_population.append(turnover_trial)
+                        if turnover_score < self.best_score:
+                            self.best_score = turnover_score
+                            self.best_turnover_position = turnover_trial
+                    else:
+                        new_turnover_population.append(self.turnover_population[i])
+
+                # 更新种群
+                self.height_population = np.array(new_height_population)
+                self.turnover_population = np.array(new_turnover_population)
+
+                # 协作更新
+                self.cooperate_population()
+
+                # 保存收敛数据
+                self.convergence_data.append([iteration + 1, self.best_score])
+                self.update_convergence_plot(iteration + 1)
+                print(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.best_score}')
+
+            self.update_final_heights()
+
+        def evolve_individual(self, population, i):
+            # 差分进化的变异与交叉操作
+            indices = list(range(self.pop_size))
+            indices.remove(i)
+            a, b, c = np.random.choice(indices, 3, replace=False)
+
+            mutant = np.clip(population[a] + self.F * (population[b] - population[c]), 0,
+                             self.num_positions - 1).astype(int)
+            trial = np.copy(population[i])
+
+            for j in range(num_plates):
+                if np.random.rand() < self.CR:
+                    trial[j] = mutant[j]
+
+            return trial
+
+        def calculate_height_fitness(self, individual, temp_heights):
+            # 计算与堆垛高度相关的适应度得分
+            combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
+                individual, temp_heights, plates, delivery_times, batches)
+            space_utilization = maximize_space_utilization_v3(individual, plates, Dki)
+
+            score = (self.lambda_1 * combined_movement_turnover_penalty - self.lambda_4 * space_utilization)
+            return score
+
+        def calculate_turnover_fitness(self, individual, temp_heights):
+            # 计算与翻垛次数相关的适应度得分
+            energy_time_penalty = minimize_outbound_energy_time_with_batch(individual, plates, temp_heights)
+            balance_penalty = maximize_inventory_balance_v2(individual, plates)
+
+            score = (self.lambda_2 * energy_time_penalty + self.lambda_3 * balance_penalty)
+            return score
+
+        def cooperate_population(self):
+            # 协作策略: 根据两个种群的最优解，更新适应度
+            if self.best_height_position is None:
+                self.best_height_position = np.copy(self.height_population[0])
+            if self.best_turnover_position is None:
+                self.best_turnover_position = np.copy(self.turnover_population[0])
+
+            combined_best = np.copy(self.best_height_position)
+            for i in range(len(combined_best)):
+                if np.random.rand() < 0.5:
+                    combined_best[i] = self.best_turnover_position[i]
+
+            self.best_position = combined_best
+
+        def update_final_heights(self):
+            global heights
+            heights = np.zeros(len(Dki))
+            for plate_idx, position in enumerate(self.best_position):
+                area = position
+                heights[area] += plates[plate_idx, 2]
+
+        def update_convergence_plot(self, current_iteration):
+            # 动态更新收敛曲线
+            iteration_data = [x[0] for x in self.convergence_data]
+            score_data = [x[1] for x in self.convergence_data]
+
+            plt.figure(figsize=(8, 4))
+            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
+            plt.xlabel('Iterations')
+            plt.ylabel('Best Score')
+            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.best_score}')
+            plt.legend()
+
+            # 使用 Streamlit 的空占位符更新图表
+            convergence_plot_placeholder.pyplot(plt)
+
+            # 保存收敛数据到 CSV 文件
+            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
+            convergence_data_dir = "result/ConvergenceData"
+            os.makedirs(convergence_data_dir, exist_ok=True)
+            convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_coea.csv')
+            convergence_data_df.to_csv(convergence_data_path, index=False)
+
+    class EDA_with_Batch:
+        def __init__(self, pop_size, num_positions, max_iter, lambda_1, lambda_2, lambda_3, lambda_4):
+            self.pop_size = pop_size  # 种群大小
+            self.num_positions = num_positions  # 库区/垛位数量
+            self.max_iter = max_iter  # 最大迭代次数
+            self.lambda_1 = lambda_1  # 高度相关的权重参数
+            self.lambda_2 = lambda_2  # 翻垛相关的权重参数
+            self.lambda_3 = lambda_3
+            self.lambda_4 = lambda_4
+            self.population = np.random.randint(0, num_positions, size=(pop_size, num_plates))  # 随机初始化种群
+            self.best_position = None  # 最佳解
+            self.best_score = np.inf  # 最优得分
+            self.convergence_data = []  # 用于保存收敛数据
+
+        def optimize(self):
+            global heights
+            for iteration in range(self.max_iter):
+                # 估计概率分布
+                probabilities = self.estimate_distribution()
+
+                # 使用概率分布生成新的种群
+                new_population = self.generate_new_population(probabilities)
+
+                # 选择操作：评估新种群并选择表现最好的个体
+                for individual in new_population:
+                    temp_heights = heights.copy()
+                    score = self.calculate_fitness(individual, temp_heights)
+
+                    if score < self.best_score:
+                        self.best_score = score
+                        self.best_position = individual
+
+                # 更新种群
+                self.population = np.copy(new_population)
+
+                # 保存收敛数据
+                self.convergence_data.append([iteration + 1, self.best_score])
+                self.update_convergence_plot(iteration + 1)
+                print(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.best_score}')
+
+            self.update_final_heights()
+
+        def estimate_distribution(self):
+            # 估计种群的概率分布
+            probabilities = np.zeros((num_plates, self.num_positions))
+
+            # 统计每个位置被选择的频率
+            for i in range(num_plates):
+                for individual in self.population:
+                    probabilities[i, individual[i]] += 1
+
+            # 将频率转换为概率
+            probabilities = probabilities / self.pop_size
+            return probabilities
+
+        def generate_new_population(self, probabilities):
+            # 根据估计的概率分布生成新种群
+            new_population = []
+            for _ in range(self.pop_size):
+                new_individual = []
+                for i in range(num_plates):
+                    new_position = np.random.choice(self.num_positions, p=probabilities[i])
+                    new_individual.append(new_position)
+                new_population.append(np.array(new_individual))
+            return np.array(new_population)
+
+        def calculate_fitness(self, individual, temp_heights):
+            # 计算个体的适应度得分
+            combined_movement_turnover_penalty = minimize_stack_movements_and_turnover(
+                individual, temp_heights, plates, delivery_times, batches)
+            energy_time_penalty = minimize_outbound_energy_time_with_batch(individual, plates, temp_heights)
+            balance_penalty = maximize_inventory_balance_v2(individual, plates)
+            space_utilization = maximize_space_utilization_v3(individual, plates, Dki)
+
+            score = (self.lambda_1 * combined_movement_turnover_penalty +
+                     self.lambda_2 * energy_time_penalty +
+                     self.lambda_3 * balance_penalty -
+                     self.lambda_4 * space_utilization)
+
+            return score
+
+        def update_final_heights(self):
+            global heights
+            heights = np.zeros(len(Dki))
+            for plate_idx, position in enumerate(self.best_position):
+                area = position
+                heights[area] += plates[plate_idx, 2]
+
+        def update_convergence_plot(self, current_iteration):
+            # 动态更新收敛曲线
+            iteration_data = [x[0] for x in self.convergence_data]
+            score_data = [x[1] for x in self.convergence_data]
+
+            plt.figure(figsize=(8, 4))
+            plt.plot(iteration_data, score_data, '-o', color='blue', label='Best Score')
+            plt.xlabel('Iterations')
+            plt.ylabel('Best Score')
+            plt.title(f'Convergence Curve - Iteration {current_iteration}, Best Score {self.best_score}')
+            plt.legend()
+
+            # 使用 Streamlit 的空占位符更新图表
+            convergence_plot_placeholder.pyplot(plt)
+
+            # 保存收敛数据到 CSV 文件
+            convergence_data_df = pd.DataFrame(self.convergence_data, columns=['Iteration', 'Best Score'])
+            convergence_data_dir = "result/ConvergenceData"
+            os.makedirs(convergence_data_dir, exist_ok=True)
+            convergence_data_path = os.path.join(convergence_data_dir, 'convergence_data_eda.csv')
             convergence_data_df.to_csv(convergence_data_path, index=False)
 
 
@@ -1379,3 +1902,608 @@ if df is not None:
         result_df.to_csv(output_file_heights, index=False)
 
         # st.success(f"Stacking statistics saved to {output_file_heights}")
+
+
+    elif selected_algorithm == "ACO (Ant Colony Optimization)":
+        # Initialize and run ACO_with_Batch
+        aco_with_batch = ACO_with_Batch(
+            num_ants=num_ants,  # 使用用户输入的蚂蚁数量
+            num_positions=len(Dki),
+            alpha=alpha,  # 使用用户输入的 alpha 参数
+            beta=beta,  # 使用用户输入的 beta 参数
+            evaporation_rate=evaporation_rate,  # 使用用户输入的蒸发率
+            q=q,  # 使用用户输入的信息素常数 Q
+            max_iter=max_iter,  # 使用用户输入的最大迭代次数
+            lambda_1=lambda_1, lambda_2=lambda_2, lambda_3=lambda_3, lambda_4=lambda_4  # 使用用户输入的目标函数权重
+        )
+
+        aco_with_batch.optimize()
+
+        # 获取最优解并将其映射到df
+        final_positions_with_batch = aco_with_batch.best_position
+        final_x = []
+        final_y = []
+        for i, position in enumerate(final_positions_with_batch):
+            area = position
+            x, y = area_positions[area][i % len(area_positions[area])]
+            final_x.append(x)
+            final_y.append(y)
+
+        df['Final Area'] = final_positions_with_batch
+        df['Final X'] = final_x
+        df['Final Y'] = final_y
+
+        # 保存最终堆垛结果
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        df.to_csv(output_file_plates_with_batch, index=False)
+
+        st.success("Ant Colony Optimization completed! You can now visualize the results.")
+
+        heights_dict = {}
+        df['Stacking Start Height'] = 0.0
+        df['Stacking Height'] = 0.0
+
+        for i in range(len(df)):
+            area = df.loc[i, 'Final Area']
+            x = df.loc[i, 'Final X']
+            y = df.loc[i, 'Final Y']
+            key = (area, x, y)
+            current_height = heights_dict.get(key, 0.0)
+            df.loc[i, 'Stacking Start Height'] = current_height
+            df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
+            heights_dict[key] = df.loc[i, 'Stacking Height']
+
+        # 保存计算后的数据
+        final_stack_distribution_path = os.path.join(
+            "result/final_stack_distribution/final_stack_distribution_plates_aco.csv")
+        df.to_csv(final_stack_distribution_path, index=False)
+
+        # 设置 session state，允许可视化
+        st.session_state['optimization_done'] = True
+        # st.success("Stacking optimization completed！You can now visualize the results.")
+
+        # 生成堆垛结果的统计表
+        st.write("### Final Stack Distribution Table")
+
+        # 读取 final_stack_distribution_plates.csv 文件
+        df = pd.read_csv(final_stack_distribution_path)
+
+        # 初始化用于统计的字典
+        height_dict = {}
+        plate_count_dict = {}
+
+        layout = {
+            0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第0库区的垛位
+            1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第1库区
+            2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],  # 第2库区
+            3: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第3库区
+            4: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第4库区
+            5: [(0, 0), (0, 1), (1, 0), (1, 1)]  # 第5库区
+        }
+
+        # 初始化每个库区的垛位高度和钢板计数
+        for area in layout.keys():
+            for pos in layout[area]:
+                height_dict[(area, pos[0], pos[1])] = 0.0
+                plate_count_dict[(area, pos[0], pos[1])] = 0
+
+
+        # 检查库区和垛位是否在layout中
+        def is_valid_position(area, x, y):
+            return (area in layout) and ((int(x), int(y)) in layout[area])
+
+
+        # 使用已有的 Stacking Height，而不是累加 Thickness
+        for index, row in df.iterrows():
+            area = row['Final Area']
+            x = row['Final X']
+            y = row['Final Y']
+            stacking_height = row['Stacking Height']  # 使用已计算的堆垛高度
+
+            # 确保 X 和 Y 为整数
+            x = int(x)
+            y = int(y)
+
+            if is_valid_position(area, x, y):
+                # 更新该垛位的堆垛高度
+                height_dict[(area, x, y)] = stacking_height
+
+                # 更新该垛位的钢板数量
+                plate_count_dict[(area, x, y)] += 1
+            else:
+                print(f"Warning: Invalid position ({area}, {x}, {y}) in row {index}")
+
+        # 初始化列表用于存储最终结果
+        results = []
+
+        # 填充每个库区的垛位高度和钢板数量
+        for area, positions in layout.items():
+            total_plates = 0
+            heights = []
+
+            for pos in positions:
+                height = height_dict[(area, pos[0], pos[1])]
+                heights.append(height)
+                total_plates += plate_count_dict[(area, pos[0], pos[1])]
+
+            # 计算平均高度
+            average_height = np.mean(heights)
+
+            # 记录每个库区的堆垛信息
+            result_entry = {
+                'Area': area,
+                'Total Plates': total_plates,
+                'Average Height': average_height
+            }
+
+            # 记录每个垛位的高度
+            for i, pos in enumerate(positions):
+                result_entry[f'Position {i + 1}'] = height_dict[(area, pos[0], pos[1])]
+
+            results.append(result_entry)
+
+            # 将结果转换为 DataFrame
+        result_df = pd.DataFrame(results)
+
+        # 显示统计表
+        st.write("Stacking Distribution Statistics Table:")
+        st.dataframe(result_df)
+
+        # 保存结果到 CSV 文件
+        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_aco.csv'
+        result_df.to_csv(output_file_heights, index=False)
+
+        # st.success(f"Stacking statistics saved to {output_file_heights}")
+
+    # 在优化中选择差分进化算法
+    elif selected_algorithm == "DE (Differential Evolution)":
+        # Initialize and run DE_with_Batch
+        de_with_batch = DE_with_Batch(
+            pop_size=pop_size,
+            num_positions=len(Dki),
+            F=F,
+            CR=CR,
+            max_iter=max_iter,
+            lambda_1=lambda_1,
+            lambda_2=lambda_2,
+            lambda_3=lambda_3,
+            lambda_4=lambda_4
+        )
+        de_with_batch.optimize()
+
+        # 获取最优解并将其映射到df
+        final_positions_with_batch = de_with_batch.best_position
+        final_x = []
+        final_y = []
+        for i, position in enumerate(final_positions_with_batch):
+            area = position
+            x, y = area_positions[area][i % len(area_positions[area])]
+            final_x.append(x)
+            final_y.append(y)
+
+        df['Final Area'] = final_positions_with_batch
+        df['Final X'] = final_x
+        df['Final Y'] = final_y
+
+        # 保存最终堆垛结果
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        df.to_csv(output_file_plates_with_batch, index=False)
+
+        st.success("Differential Evolution completed! You can now visualize the results.")
+
+        heights_dict = {}
+        df['Stacking Start Height'] = 0.0
+        df['Stacking Height'] = 0.0
+
+        for i in range(len(df)):
+            area = df.loc[i, 'Final Area']
+            x = df.loc[i, 'Final X']
+            y = df.loc[i, 'Final Y']
+            key = (area, x, y)
+            current_height = heights_dict.get(key, 0.0)
+            df.loc[i, 'Stacking Start Height'] = current_height
+            df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
+            heights_dict[key] = df.loc[i, 'Stacking Height']
+
+        # 保存计算后的数据
+        final_stack_distribution_path = os.path.join(
+            "result/final_stack_distribution/final_stack_distribution_plates_de.csv")
+        df.to_csv(final_stack_distribution_path, index=False)
+
+        # 设置 session state，允许可视化
+        st.session_state['optimization_done'] = True
+        # st.success("Stacking optimization completed！You can now visualize the results.")
+
+        # 生成堆垛结果的统计表
+        st.write("### Final Stack Distribution Table")
+
+        # 读取 final_stack_distribution_plates.csv 文件
+        df = pd.read_csv(final_stack_distribution_path)
+
+        # 初始化用于统计的字典
+        height_dict = {}
+        plate_count_dict = {}
+
+        layout = {
+            0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第0库区的垛位
+            1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第1库区
+            2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],  # 第2库区
+            3: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第3库区
+            4: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第4库区
+            5: [(0, 0), (0, 1), (1, 0), (1, 1)]  # 第5库区
+        }
+
+        # 初始化每个库区的垛位高度和钢板计数
+        for area in layout.keys():
+            for pos in layout[area]:
+                height_dict[(area, pos[0], pos[1])] = 0.0
+                plate_count_dict[(area, pos[0], pos[1])] = 0
+
+
+        # 检查库区和垛位是否在layout中
+        def is_valid_position(area, x, y):
+            return (area in layout) and ((int(x), int(y)) in layout[area])
+
+
+        # 使用已有的 Stacking Height，而不是累加 Thickness
+        for index, row in df.iterrows():
+            area = row['Final Area']
+            x = row['Final X']
+            y = row['Final Y']
+            stacking_height = row['Stacking Height']  # 使用已计算的堆垛高度
+
+            # 确保 X 和 Y 为整数
+            x = int(x)
+            y = int(y)
+
+            if is_valid_position(area, x, y):
+                # 更新该垛位的堆垛高度
+                height_dict[(area, x, y)] = stacking_height
+
+                # 更新该垛位的钢板数量
+                plate_count_dict[(area, x, y)] += 1
+            else:
+                print(f"Warning: Invalid position ({area}, {x}, {y}) in row {index}")
+
+        # 初始化列表用于存储最终结果
+        results = []
+
+        # 填充每个库区的垛位高度和钢板数量
+        for area, positions in layout.items():
+            total_plates = 0
+            heights = []
+
+            for pos in positions:
+                height = height_dict[(area, pos[0], pos[1])]
+                heights.append(height)
+                total_plates += plate_count_dict[(area, pos[0], pos[1])]
+
+            # 计算平均高度
+            average_height = np.mean(heights)
+
+            # 记录每个库区的堆垛信息
+            result_entry = {
+                'Area': area,
+                'Total Plates': total_plates,
+                'Average Height': average_height
+            }
+
+            # 记录每个垛位的高度
+            for i, pos in enumerate(positions):
+                result_entry[f'Position {i + 1}'] = height_dict[(area, pos[0], pos[1])]
+
+            results.append(result_entry)
+
+            # 将结果转换为 DataFrame
+        result_df = pd.DataFrame(results)
+
+        # 显示统计表
+        st.write("Stacking Distribution Statistics Table:")
+        st.dataframe(result_df)
+
+        # 保存结果到 CSV 文件
+        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_de.csv'
+        result_df.to_csv(output_file_heights, index=False)
+
+        # st.success(f"Stacking statistics saved to {output_file_heights}")
+
+    elif selected_algorithm == "CoEA (Co-Evolutionary Algorithm)":
+        # Initialize and run CoEA_with_Batch
+        coea_with_batch = CoEA_with_Batch(
+            pop_size=pop_size,
+            num_positions=len(Dki),
+            F=F,
+            CR=CR,
+            max_iter=max_iter,
+            lambda_1=lambda_1,
+            lambda_2=lambda_2,
+            lambda_3=lambda_3,
+            lambda_4=lambda_4
+        )
+        coea_with_batch.optimize()
+
+        # 获取最优解并将其映射到df
+        final_positions_with_batch = coea_with_batch.best_position
+        final_x = []
+        final_y = []
+        for i, position in enumerate(final_positions_with_batch):
+            area = position
+            x, y = area_positions[area][i % len(area_positions[area])]
+            final_x.append(x)
+            final_y.append(y)
+
+        df['Final Area'] = final_positions_with_batch
+        df['Final X'] = final_x
+        df['Final Y'] = final_y
+
+        # 保存最终堆垛结果
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        df.to_csv(output_file_plates_with_batch, index=False)
+
+        st.success("Co-Evolutionary Algorithm completed! You can now visualize the results.")
+
+        heights_dict = {}
+        df['Stacking Start Height'] = 0.0
+        df['Stacking Height'] = 0.0
+
+        for i in range(len(df)):
+            area = df.loc[i, 'Final Area']
+            x = df.loc[i, 'Final X']
+            y = df.loc[i, 'Final Y']
+            key = (area, x, y)
+            current_height = heights_dict.get(key, 0.0)
+            df.loc[i, 'Stacking Start Height'] = current_height
+            df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
+            heights_dict[key] = df.loc[i, 'Stacking Height']
+
+        # 保存计算后的数据
+        final_stack_distribution_path = os.path.join(
+            "result/final_stack_distribution/final_stack_distribution_plates_coea.csv")
+        df.to_csv(final_stack_distribution_path, index=False)
+
+        # 设置 session state，允许可视化
+        st.session_state['optimization_done'] = True
+        # st.success("Stacking optimization completed！You can now visualize the results.")
+
+        # 生成堆垛结果的统计表
+        st.write("### Final Stack Distribution Table")
+
+        # 读取 final_stack_distribution_plates.csv 文件
+        df = pd.read_csv(final_stack_distribution_path)
+
+        # 初始化用于统计的字典
+        height_dict = {}
+        plate_count_dict = {}
+
+        layout = {
+            0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第0库区的垛位
+            1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第1库区
+            2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],  # 第2库区
+            3: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第3库区
+            4: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第4库区
+            5: [(0, 0), (0, 1), (1, 0), (1, 1)]  # 第5库区
+        }
+
+        # 初始化每个库区的垛位高度和钢板计数
+        for area in layout.keys():
+            for pos in layout[area]:
+                height_dict[(area, pos[0], pos[1])] = 0.0
+                plate_count_dict[(area, pos[0], pos[1])] = 0
+
+
+        # 检查库区和垛位是否在layout中
+        def is_valid_position(area, x, y):
+            return (area in layout) and ((int(x), int(y)) in layout[area])
+
+
+        # 使用已有的 Stacking Height，而不是累加 Thickness
+        for index, row in df.iterrows():
+            area = row['Final Area']
+            x = row['Final X']
+            y = row['Final Y']
+            stacking_height = row['Stacking Height']  # 使用已计算的堆垛高度
+
+            # 确保 X 和 Y 为整数
+            x = int(x)
+            y = int(y)
+
+            if is_valid_position(area, x, y):
+                # 更新该垛位的堆垛高度
+                height_dict[(area, x, y)] = stacking_height
+
+                # 更新该垛位的钢板数量
+                plate_count_dict[(area, x, y)] += 1
+            else:
+                print(f"Warning: Invalid position ({area}, {x}, {y}) in row {index}")
+
+        # 初始化列表用于存储最终结果
+        results = []
+
+        # 填充每个库区的垛位高度和钢板数量
+        for area, positions in layout.items():
+            total_plates = 0
+            heights = []
+
+            for pos in positions:
+                height = height_dict[(area, pos[0], pos[1])]
+                heights.append(height)
+                total_plates += plate_count_dict[(area, pos[0], pos[1])]
+
+            # 计算平均高度
+            average_height = np.mean(heights)
+
+            # 记录每个库区的堆垛信息
+            result_entry = {
+                'Area': area,
+                'Total Plates': total_plates,
+                'Average Height': average_height
+            }
+
+            # 记录每个垛位的高度
+            for i, pos in enumerate(positions):
+                result_entry[f'Position {i + 1}'] = height_dict[(area, pos[0], pos[1])]
+
+            results.append(result_entry)
+
+            # 将结果转换为 DataFrame
+        result_df = pd.DataFrame(results)
+
+        # 显示统计表
+        st.write("Stacking Distribution Statistics Table:")
+        st.dataframe(result_df)
+
+        # 保存结果到 CSV 文件
+        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_coea.csv'
+        result_df.to_csv(output_file_heights, index=False)
+
+        # st.success(f"Stacking statistics saved to {output_file_heights}")
+
+    elif selected_algorithm == "EDA (Estimation of Distribution Algorithm)":
+        # Initialize and run EDA_with_Batch
+        eda_with_batch = EDA_with_Batch(
+            pop_size=pop_size,
+            num_positions=len(Dki),
+            max_iter=max_iter,
+            lambda_1=lambda_1,
+            lambda_2=lambda_2,
+            lambda_3=lambda_3,
+            lambda_4=lambda_4
+        )
+        eda_with_batch.optimize()
+
+        # 获取最优解并将其映射到df
+        final_positions_with_batch = eda_with_batch.best_position
+        final_x = []
+        final_y = []
+        for i, position in enumerate(final_positions_with_batch):
+            area = position
+            x, y = area_positions[area][i % len(area_positions[area])]
+            final_x.append(x)
+            final_y.append(y)
+
+        df['Final Area'] = final_positions_with_batch
+        df['Final X'] = final_x
+        df['Final Y'] = final_y
+
+        # 保存最终堆垛结果
+        output_file_plates_with_batch = r'result/final_stack_distribution/final_stack_distribution.csv'
+        df.to_csv(output_file_plates_with_batch, index=False)
+
+        st.success("Estimation of Distribution Algorithm completed! You can now visualize the results.")
+
+        heights_dict = {}
+        df['Stacking Start Height'] = 0.0
+        df['Stacking Height'] = 0.0
+
+        for i in range(len(df)):
+            area = df.loc[i, 'Final Area']
+            x = df.loc[i, 'Final X']
+            y = df.loc[i, 'Final Y']
+            key = (area, x, y)
+            current_height = heights_dict.get(key, 0.0)
+            df.loc[i, 'Stacking Start Height'] = current_height
+            df.loc[i, 'Stacking Height'] = current_height + df.loc[i, 'Thickness']
+            heights_dict[key] = df.loc[i, 'Stacking Height']
+
+        # 保存计算后的数据
+        final_stack_distribution_path = os.path.join(
+            "result/final_stack_distribution/final_stack_distribution_plates_eda.csv")
+        df.to_csv(final_stack_distribution_path, index=False)
+
+        # 设置 session state，允许可视化
+        st.session_state['optimization_done'] = True
+        # st.success("Stacking optimization completed！You can now visualize the results.")
+
+        # 生成堆垛结果的统计表
+        st.write("### Final Stack Distribution Table")
+
+        # 读取 final_stack_distribution_plates.csv 文件
+        df = pd.read_csv(final_stack_distribution_path)
+
+        # 初始化用于统计的字典
+        height_dict = {}
+        plate_count_dict = {}
+
+        layout = {
+            0: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第0库区的垛位
+            1: [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (2, 0), (2, 1)],  # 第1库区
+            2: [(0, 0), (0, 1), (1, 0), (1, 1), (2, 0), (2, 1)],  # 第2库区
+            3: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第3库区
+            4: [(0, 0), (0, 1), (1, 0), (1, 1)],  # 第4库区
+            5: [(0, 0), (0, 1), (1, 0), (1, 1)]  # 第5库区
+        }
+
+        # 初始化每个库区的垛位高度和钢板计数
+        for area in layout.keys():
+            for pos in layout[area]:
+                height_dict[(area, pos[0], pos[1])] = 0.0
+                plate_count_dict[(area, pos[0], pos[1])] = 0
+
+
+        # 检查库区和垛位是否在layout中
+        def is_valid_position(area, x, y):
+            return (area in layout) and ((int(x), int(y)) in layout[area])
+
+
+        # 使用已有的 Stacking Height，而不是累加 Thickness
+        for index, row in df.iterrows():
+            area = row['Final Area']
+            x = row['Final X']
+            y = row['Final Y']
+            stacking_height = row['Stacking Height']  # 使用已计算的堆垛高度
+
+            # 确保 X 和 Y 为整数
+            x = int(x)
+            y = int(y)
+
+            if is_valid_position(area, x, y):
+                # 更新该垛位的堆垛高度
+                height_dict[(area, x, y)] = stacking_height
+
+                # 更新该垛位的钢板数量
+                plate_count_dict[(area, x, y)] += 1
+            else:
+                print(f"Warning: Invalid position ({area}, {x}, {y}) in row {index}")
+
+        # 初始化列表用于存储最终结果
+        results = []
+
+        # 填充每个库区的垛位高度和钢板数量
+        for area, positions in layout.items():
+            total_plates = 0
+            heights = []
+
+            for pos in positions:
+                height = height_dict[(area, pos[0], pos[1])]
+                heights.append(height)
+                total_plates += plate_count_dict[(area, pos[0], pos[1])]
+
+            # 计算平均高度
+            average_height = np.mean(heights)
+
+            # 记录每个库区的堆垛信息
+            result_entry = {
+                'Area': area,
+                'Total Plates': total_plates,
+                'Average Height': average_height
+            }
+
+            # 记录每个垛位的高度
+            for i, pos in enumerate(positions):
+                result_entry[f'Position {i + 1}'] = height_dict[(area, pos[0], pos[1])]
+
+            results.append(result_entry)
+
+            # 将结果转换为 DataFrame
+        result_df = pd.DataFrame(results)
+
+        # 显示统计表
+        st.write("Stacking Distribution Statistics Table:")
+        st.dataframe(result_df)
+
+        # 保存结果到 CSV 文件
+        output_file_heights = r'result/final_stack_distribution/final_stack_distribution_height_eda.csv'
+        result_df.to_csv(output_file_heights, index=False)
+
+        # st.success(f"Stacking statistics saved to {output_file_heights}")
+

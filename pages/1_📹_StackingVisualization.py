@@ -11,7 +11,9 @@ else:
     st.title("Stack Visualization")
 
     # 在侧边栏中添加优化算法的选择
-    algorithm_choice = st.sidebar.selectbox("Select Optimization Algorithm", ["PSO (Particle Swarm Optimization)", "GA (Genetic Algorithm)", "SA (Simulated Annealing)","PSO + SA (Hybrid Optimization)"])
+    algorithm_choice = st.sidebar.selectbox("Select Optimization Algorithm", ["PSO (Particle Swarm Optimization)",
+        "GA (Genetic Algorithm)", "SA (Simulated Annealing)","PSO + SA (Hybrid Optimization)", "ACO (Ant Colony Optimization)",
+        "DE (Differential Evolution)", "CoEA (Co-Evolutionary Algorithm)","EDA (Estimation of Distribution Algorithm"])
 
     # 根据选择的算法读取对应的文件
     if algorithm_choice == "PSO (Particle Swarm Optimization)":
@@ -22,6 +24,14 @@ else:
         data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_sa.csv'
     elif algorithm_choice == "PSO + SA (Hybrid Optimization)":
         data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_pso_sa.csv'
+    elif algorithm_choice == "ACO (Ant Colony Optimization)":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_aco.csv'
+    elif algorithm_choice == "DE (Differential Evolution)":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_de.csv'
+    elif algorithm_choice == "CoEA (Co-Evolutionary Algorithm)":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_coea.csv'
+    elif algorithm_choice == "EDA (Estimation of Distribution Algorithm":
+        data_file_path = r'result/final_stack_distribution/final_stack_distribution_plates_eda.csv'
 
     # 确保文件存在
     if not os.path.exists(data_file_path):
