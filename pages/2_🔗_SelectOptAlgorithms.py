@@ -13,7 +13,7 @@ available_algorithms = [f for f in os.listdir(convergence_data_dir) if f.endswit
 # 从文件名中提取算法名称，确保组合算法（如 pso_sa）被正确识别
 def extract_algorithm_name(file_name):
     base_name = os.path.basename(file_name)
-    if "pso_sa" in base_name:
+    if "psosa" in base_name:
         return "pso_sa"
     elif "ga" in base_name:
         return "ga"

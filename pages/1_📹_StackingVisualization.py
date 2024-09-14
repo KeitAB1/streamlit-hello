@@ -82,7 +82,7 @@ else:
         st.plotly_chart(fig_3d, use_container_width=True)
 
         # 提供图表类型的选择
-        chart_type = st.selectbox(f"Select chart type for Area {selected_area}", ["Combo", "Bar", "Line", "Area"])
+        chart_type = st.selectbox(f"Select chart type for Area {selected_area}", ["Combo", "Bar", "Line", "Area", "Scatter", "Pie"])
 
         # 获取垛位的高度数据
         positions = area_layouts[selected_area]
@@ -117,6 +117,22 @@ else:
             )
             st.plotly_chart(fig_area, use_container_width=True)
 
+        elif chart_type == "Scatter":
+            fig_scatter = go.Figure([go.Scatter(x=position_labels, y=height_data, mode='markers')])
+            fig_scatter.update_layout(
+                title=f'Height Distribution in Area {selected_area} (Scatter Plot)',
+                xaxis_title='Position',
+                yaxis_title='Stacking Height'
+            )
+            st.plotly_chart(fig_scatter, use_container_width=True)
+
+        elif chart_type == "Pie":
+            fig_pie = go.Figure([go.Pie(labels=position_labels, values=height_data)])
+            fig_pie.update_layout(
+                title=f'Stacking Height Distribution in Area {selected_area} (Pie Chart)'
+            )
+            st.plotly_chart(fig_pie, use_container_width=True)
+
         else:  # Combo 图，包含柱状图和线条图
             fig_combo = go.Figure()
             fig_combo.add_trace(go.Bar(x=position_labels, y=height_data, width=0.3, name='Bar'))
@@ -143,7 +159,7 @@ else:
                 all_positions.append(f'Area {area} - {pos[0]}_{pos[1]}')
 
         # 选择总图的图表类型
-        total_chart_type = st.selectbox("Select total chart type", ["Bar", "Line", "Area", "Combo"])
+        total_chart_type = st.selectbox("Select total chart type", ["Bar", "Line", "Area", "Combo", "Scatter", "Pie"])
 
         # 绘制总图
         if total_chart_type == "Bar":
@@ -152,6 +168,10 @@ else:
             fig_total = go.Figure([go.Scatter(x=all_positions, y=all_height_data, mode='lines')])
         elif total_chart_type == "Area":
             fig_total = go.Figure([go.Scatter(x=all_positions, y=all_height_data, fill='tozeroy')])
+        elif total_chart_type == "Scatter":
+            fig_total = go.Figure([go.Scatter(x=all_positions, y=all_height_data, mode='markers')])
+        elif total_chart_type == "Pie":
+            fig_total = go.Figure([go.Pie(labels=all_positions, values=all_height_data)])
         else:  # Combo 图
             fig_total = go.Figure()
             fig_total.add_trace(go.Bar(x=all_positions, y=all_height_data, width=0.3, name='Bar'))

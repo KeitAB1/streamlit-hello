@@ -761,6 +761,12 @@ if df is not None:
             # 使用SA在PSO的解基础上进行局部优化
             best_position_sa, best_score_sa = self.sa_optimizer.optimize_from_position(initial_position_for_sa)
 
+            # 将PSO优化的收敛数据存入 PSO + SA 的收敛数据中
+            self.convergence_data_pso_sa.extend(self.pso_optimizer.convergence_data)
+
+            # 将SA优化的收敛数据追加到PSO + SA的收敛数据中
+            self.convergence_data_pso_sa.extend(self.sa_optimizer.convergence_data)
+
             # 保存PSO + SA的收敛数据
             self.save_convergence_data_pso_sa()
 
