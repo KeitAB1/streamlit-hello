@@ -1,3 +1,4 @@
+SQLAlchemy
 streamlit
 pandas
 numpy
@@ -7,3 +8,4 @@ orjson
 pytesseract
 Pillow
 opencv-python-headless
+pymysql
