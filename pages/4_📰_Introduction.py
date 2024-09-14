@@ -142,6 +142,22 @@ if st.session_state.section == '功能介绍':
     - $N$：钢板的总数。
     """)
 
+    #### 添加目标函数2的公式
+    st.markdown("<h4 style='text-align: left;'>2. 最小化出库能耗与时间：</h4>", unsafe_allow_html=True)
+
+    st.write("""
+    该目标函数计算钢板从仓库入库和出库时的能耗与时间。
+    """)
+
+    st.latex(r'''
+    F_2 = \sum_{b \in B}\sum_{i=1}^{N_b}(t_{\text{move}}(i) + t_{\text{pick}}(i) + t_{\text{flip}}(i))
+    ''')
+
+    st.markdown("""
+    - $B$：钢板批次的集合。
+    - $N_b$：属于批次 $b$ 的钢板数量。
+    """)
+
     st.markdown("<h4 style='text-align: left;'>机械臂移动时间公式：</h4>", unsafe_allow_html=True)
 
     st.latex(r'''
@@ -243,6 +259,8 @@ if st.session_state.section == '功能介绍':
 
     这个公式的目标是最大化空间利用率，即尽可能地利用堆位的可用空间，确保钢板尽量紧密堆叠在可用的堆垛空间中。
     """)
+
+
 
 elif st.session_state.section == '图片展示':
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>项目图片展示</h3>", unsafe_allow_html=True)
