@@ -536,6 +536,7 @@ if df is not None:
 
 
     class GA_with_Batch:
+
         cache = {}  # 适应度缓存，避免重复计算
 
         def __init__(self, population_size, mutation_rate, crossover_rate, generations, lambda_1, lambda_2, lambda_3,
