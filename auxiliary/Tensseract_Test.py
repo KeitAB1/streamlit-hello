@@ -5,10 +5,26 @@ import numpy as np
 import pytesseract
 from PIL import Image
 
-
 def ocr_image(image):
     """对传入的图像进行OCR识别"""
     return pytesseract.image_to_string(image, lang='chi_sim')
+
+# 图像预处理函数
+def preprocess_image(image):
+    """
+    对图像进行预处理以提高OCR的识别效果。
+    包括灰度转换、双边滤波、阈值处理等。
+    """
+    # 转换为灰度图像
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # 应用双边滤波，保留边缘并减少噪声
+    gray = cv2.bilateralFilter(gray, 11, 17, 17)
+
+    # 应用自适应阈值，将图像转换为二值图像
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+    return thresh
 
 #先校正再识别
 def process_images_from_folder(folder_path, progress_placeholder, IMAGE_SAVE_DIR):
@@ -27,8 +43,10 @@ def process_images_from_folder(folder_path, progress_placeholder, IMAGE_SAVE_DIR
         corrected_image = Corrected_Tilt(image_path)
         # 2. 调整图像
         adjusted_image = corrected_image.adjustImg()
-        # 3. 使用校正后的图像进行OCR识别
-        recognized_text = corrected_image.ocr_with_tesseract(adjusted_image)
+        # 3. 图像预处理
+        preprocessed_image = preprocess_image(adjusted_image)
+        # 4. 使用校正和预处理后的图像进行OCR识别
+        recognized_text = corrected_image.ocr_with_tesseract(preprocessed_image)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # 将 numpy 数组转换为 PIL.Image 对象
         adjusted_image = Image.fromarray(adjusted_image)
@@ -99,10 +117,6 @@ class Corrected_Tilt:
         # 使用 warpAffine 函数旋转图像
         rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
 
-        #显示旋转前后的图片
-        #self.display_image(image)
-        #self.display_image(rotated)
-
         return rotated
 
     def ocr_with_tesseract(self, image):
@@ -117,19 +131,6 @@ class Corrected_Tilt:
 
         # 返回识别出的文本（去除多余的空白）
         return text.strip()
-
-    def display_image(self, image, title=None):
-        """
-        显示图像。
-
-        :param image: 输入的图像（BGR格式）
-        :param title: 显示窗口的标题
-        """
-        # 将 OpenCV 的 BGR 图像转换为 PIL 的 RGB 图像
-        pil_image = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-
-        # 显示图像
-        pil_image.show(title)
 
     def adjustImg(self):
         angle = self.detect_skew_angle(self.image)  # 检测倾斜角度

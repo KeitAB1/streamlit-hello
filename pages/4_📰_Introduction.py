@@ -3,7 +3,7 @@ import os
 from PIL import Image
 
 # 图片/视频文件夹地址
-video_dir= "data/introduction_src/videos"
+video_dir = "data/introduction_src/videos"
 image_dir1 = "data/introduction_src/images01"
 image_dir2 = "data/introduction_src/images02"
 
@@ -11,7 +11,7 @@ image_dir2 = "data/introduction_src/images02"
 st.markdown("<h1 style='text-align: center; color: black;'>智能仓储系统介绍</h1>", unsafe_allow_html=True)
 st.markdown("<h2 style='text-align: center; color: gray;'>Intelligent Warehouse System Introduction</h2>", unsafe_allow_html=True)
 
-# 自定义按钮的 CSS 样式
+# 默认按钮样式
 st.markdown("""
     <style>
     .stButton > button {
@@ -19,22 +19,14 @@ st.markdown("""
         padding: 10px 20px;
         background-color: white;
         color: black;
-        border: 2px solid #cccccc;  /* 边框默认颜色淡灰色 */
+        border: 2px solid #cccccc;
         border-radius: 5px;
         transition-duration: 0.4s;
     }
     .stButton > button:hover {
         background-color: #f2f2f2;
-        color: #ff6666;  /* 悬停时字体颜色变浅红 */
-        border-color: #ff6666;  /* 悬停时边框颜色变浅红 */
-    }
-    .stButton.selected > button {
-        border-color: #ff6666;  /* 选中时的边框颜色浅红 */
-        color: #ff6666;  /* 选中时的字体颜色浅红 */
-    }
-    div[data-testid="stSidebar"] button[data-baseweb="button"]{
-        border: 2px solid #cccccc;
-        color: black;
+        color: #ff6666;
+        border-color: #ff6666;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -53,11 +45,9 @@ def render_button(label, section_name):
     else:
         button_class = ""
 
-    # 渲染按钮，应用动态样式
     if st.sidebar.button(label, key=section_name):
         st.session_state.section = section_name
 
-    # 用 CSS 选中样式实现红色字体和边框
     st.markdown(f"""
         <style>
         div[data-testid="stSidebar"] button[data-baseweb="button"]{{
@@ -261,19 +251,13 @@ if st.session_state.section == '功能介绍':
     """)
 
 
-
 elif st.session_state.section == '图片展示':
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>项目图片展示</h3>", unsafe_allow_html=True)
-    # 检查是否存在图片
     if os.path.exists(image_dir1):
         images = [img for img in os.listdir(image_dir1) if img.endswith(('png', 'jpg', 'jpeg'))]
         if images:
-            # 创建一个下拉框供用户选择图片
             selected_image = st.selectbox("选择要显示的图片", images)
-
             current_image_path = os.path.join(image_dir1, selected_image)
-
-            # 使用st.image来显示图片
             image = Image.open(current_image_path)
             st.image(image, caption=f"项目图片：{selected_image}", use_column_width=True)
         else:
@@ -283,16 +267,11 @@ elif st.session_state.section == '图片展示':
 
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>训练图片展示</h3>", unsafe_allow_html=True)
 
-    # 检查是否存在图片
     if os.path.exists(image_dir2):
         images = [img for img in os.listdir(image_dir2) if img.endswith(('png', 'jpg', 'jpeg'))]
         if images:
-            # 创建一个下拉框供用户选择图片
             selected_image = st.selectbox("选择要显示的图片", images)
-
             current_image_path = os.path.join(image_dir2, selected_image)
-
-            # 使用st.image来显示图片
             image = Image.open(current_image_path)
             st.image(image, caption=f"训练图片：{selected_image}", use_column_width=True)
         else:
@@ -302,14 +281,10 @@ elif st.session_state.section == '图片展示':
 
 elif st.session_state.section == '视频展示':
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>项目视频展示</h3>", unsafe_allow_html=True)
-
-    # 查找视频文件
     if os.path.exists(video_dir):
         videos = [vid for vid in os.listdir(video_dir) if vid.endswith(('mp4', 'avi', 'mov', 'mkv'))]
         if videos:
             video_file = os.path.join(video_dir, videos[0])
-
-            # 显示视频
             st.video(video_file)
         else:
             st.write("暂无项目介绍视频")
@@ -320,25 +295,82 @@ elif st.session_state.section == '参考文献':
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>参考文献说明</h3>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: left; font-weight: bold;'>参考文献如下：</h4>", unsafe_allow_html=True)
 
+    # 缩小参考文献按钮的尺寸
     st.markdown("""
-    [[1]钟传捷,程文明,杜润,等.基于改进多目标粒子群算法的钢板入库垛位分配研究[J/OL].工程科学与技术,1-18[2024-09-14].](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkm9xhOSzGzSjjngv6yYWb0reabBoZNbLH0zgHFXzYLJdkl8yFNDD_y1FhtzWmvHl8T3SxrLYFz3KlqN3Nv8VHDhfD9Ddf6_zbdBSLb_STaT7QGnOxqBS4PaKPBRr8dagdFT_zjglrLlWl0usm3SpnzujKbYfFggrFs=&uniplatform=NZKPT)
-    
-    [[2]张琦琪,张涛,刘鹏.精英改进粒子群算法在入库堆垛问题中的应用[J].计算机工程与科学,2015,37(07):1311-1317.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkm9xhOSzGzSjjngv6yYWb0reabBoZNbLH0zgHFXzYLJdkl8yFNDD_y1FhtzWmvHl8T3SxrLYFz3KlqN3Nv8VHDhfD9Ddf6_zbdBSLb_STaT7QGnOxqBS4PaKPBRr8dagdFT_zjglrLlWl0usm3SpnzujKbYfFggrFs=&uniplatform=NZKPT)
-    
-    [[3]恒正琦.A企业宽厚板厂精整区域中钢板堆垛方法的优化研究[D].上海交通大学,2018.DOI:10.27307/d.cnki.gsjtu.2018.002280.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkkPiSMHrm54E4-Y4Q2XLvAoQDRVZpnqghvP7innHAD5RU4gdAA_jKWPmIC49mBb-YVqlyWiNf7RoewZ8usx3VXWrF2BL1yf-6m5T-PjrkUQi4h2PmIN3gkf8Gh6GdH1O6llihwpok2vMyYu2NK04wsLe3T5q5Nomls=&uniplatform=NZKPT)
-    
-    [[4]侯俊,张志英.船厂钢板堆场混合存储分配及出入库调度研究[J].哈尔滨工程大学学报,2017,38(11):1786-1793.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkkPjlq5X6c0flOWIkvpUNmTJzh7Quija6asYJeV0ki7VK9j1y3YnyBdje1gft3osu5r3hseJaUGLAUfIb3AB2wCo-UXTInqAYXZjsZyoZ0les5m3hxbvfjsuzYC8vdfC4iKxEP5TXl8m_yfjEcznUp0QN_bUElwe9k=&uniplatform=NZKPT)
-    
-    [[5]李祥,顾晓波,王炬成,等.基于工业云的钢板堆场数字化管理系统设计与实现[J].造船技术,2023,51(01):80-87.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkny_WOe87edEb4rBNLDPfv195D1BSNmOLEg3W-0wS_ASJd1-xWN-oi3rmFBFPS6_qVT3OYU5MhvosINxvsR_ah5MSnC4ov1hrXs5hgKH8pKJebPYDe7_ABExncoj_p4AJ5rkLM1RK71WGaz3fU3xVZm_fKspBYHJ7g=&uniplatform=NZKPT)
-    
-    [[6]李祥.基于工业云的钢板堆场数字化管理系统研究[D].江苏科技大学,2022.DOI:10.27171/d.cnki.ghdcc.2022.000095.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkmMqgflDEGfX_A5Yjx4Q-xiYLKn013_N-_fVaL4XLk2ivGt49vFxzo7xqvlKpEm_6SGuThTg1VDCzvgM4kQcxxKn-rUE2a9LTN3l8oA6xcUute_Buq7fX1SzvBdfrUPBLVsonxkLPAmP159R3YT5VIJyhJh50gPF8Q=&uniplatform=NZKPT)
-   
-    [[7]廖尧.造船厂钢板库布局优化及管理信息系统开发[D].大连理工大学,2010.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkkG2VgDMUEFhb0I-JciM9nqjO5TqhqsEysQhT_aKEjo0mf8PJIiF9NiaEC_rMMA09QrgzJltW7sxOWCr_TIcOGzJnJjfqyYOHNXY0ThG6mh9XUJx6ACIluTWfeXjo4dUYW7crvOSe5FB1fzo--vwncUjxZ19qpe3WE=&uniplatform=NZKPT)
-    
-    [[8]徐萍.造船厂钢板入库作业优化及钢板管理信息系统开发[D].江苏科技大学,2011.](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkktDSJZf5E3EIJS0GJ5FguzGyw2fLeCZQ2I4Lup2mHmGPMl9MYeNjzRIXrk48KVSLwImUVIfU7nVoP6YLxeXZC5Ujvh2ennYGP9nssZ6MODWz8CZaYmcgB8oDb42VJNdGMI_2h8q0u7Rx6J3-nwEtlR4GRIaR0pT7E=&uniplatform=NZKPT)
-    
-    [[9]Wang, D., Tang, O. and Zhang, L. (2023) ‘Inventory stacking with partial information’, International Journal of Production Research, 62(1–2), pp. 586–604. doi: 10.1080/00207543.2023.2219768.](https://doi.org/10.1080/00207543.2023.2219768)
-    
-    [[10]Tang, L. et al. (2015) ‘Research into container reshuffling and stacking problems in container terminal yards’, IIE Transactions, 47(7), pp. 751–766. doi: 10.1080/0740817X.2014.971201.](https://doi.org/10.1080/0740817X.2014.971201)
-    """)
+    <style>
+    .small-button > button {
+        font-size: 12px;  /* 缩小字体大小 */
+        padding: 3px 8px;  /* 缩小按钮内边距 */
+        background-color: white;
+        color: black;
+        border: 2px solid #cccccc;
+        border-radius: 5px;
+        transition-duration: 0.4s;
+    }
+    .small-button > button:hover {
+        background-color: #f2f2f2;
+        color: #ff6666;
+        border-color: #ff6666;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
+    st.markdown("""
+    1. 钟传捷, 程文明, 杜润, 等. 基于改进多目标粒子群算法的钢板入库垛位分配研究[J/OL]. 工程科学与技术, 1-18 [2024-09-14].
+    """)
+    if st.button('🔗 查看文献1', key='ref1'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkm9xhOSzGzSjjngv6yYWb0reabBoZNbLH0zgHFXzYLJdkl8yFNDD_y1FhtzWmvHl8T3SxrLYFz3KlqN3Nv8VHDhfD9Ddf6_zbdBSLb_STaT7QGnOxqBS4PaKPBRr8dagdFT_zjglrLlWl0usm3SpnzujKbYfFggrFs=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    2. 张琦琪, 张涛, 刘鹏. 精英改进粒子群算法在入库堆垛问题中的应用[J]. 计算机工程与科学, 2015, 37(07): 1311-1317.
+    """)
+    if st.button('🔗 查看文献2', key='ref2'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkm9xhOSzGzSjjngv6yYWb0reabBoZNbLH0zgHFXzYLJdkl8yFNDD_y1FhtzWmvHl8T3SxrLYFz3KlqN3Nv8VHDhfD9Ddf6_zbdBSLb_STaT7QGnOxqBS4PaKPBRr8dagdFT_zjglrLlWl0usm3SpnzujKbYfFggrFs=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    3. 恒正琦. A企业宽厚板厂精整区域中钢板堆垛方法的优化研究[D]. 上海交通大学, 2018.
+    """)
+    if st.button('🔗 查看文献3', key='ref3'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkkPiSMHrm54E4-Y4Q2XLvAoQDRVZpnqghvP7innHAD5RU4gdAA_jKWPmIC49mBb-YVqlyWiNf7RoewZ8usx3VXWrF2BL1yf-6m5T-PjrkUQi4h2PmIN3gkf8Gh6GdH1O6llihwpok2vMyYu2NK04wsLe3T5q5Nomls=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    4. 侯俊, 张志英. 船厂钢板堆场混合存储分配及出入库调度研究[J]. 哈尔滨工程大学学报, 2017, 38(11): 1786-1793.
+    """)
+    if st.button('🔗 查看文献4', key='ref4'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkkPjlq5X6c0flOWIkvpUNmTJzh7Quija6asYJeV0ki7VK9j1y3YnyBdje1gft3osu5r3hseJaUGLAUfIb3AB2wCo-UXTInqAYXZjsZyoZ0les5m3hxbvfjsuzYC8vdfC4iKxEP5TXl8m_yfjEcznUp0QN_bUElwe9k=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    5. 李祥, 顾晓波, 王炬成, 等. 基于工业云的钢板堆场数字化管理系统设计与实现[J]. 造船技术, 2023, 51(01): 80-87.
+    """)
+    if st.button('🔗 查看文献5', key='ref5'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkny_WOe87edEb4rBNLDPfv195D1BSNmOLEg3W-0wS_ASJd1-xWN-oi3rmFBFPS6_qVT3OYU5MhvosINxvsR_ah5MSnC4ov1hrXs5hgKH8pKJebPYDe7_ABExncoj_p4AJ5rkLM1RK71WGaz3fU3xVZm_fKspBYHJ7g=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    6. 李祥. 基于工业云的钢板堆场数字化管理系统研究[D]. 江苏科技大学, 2022.
+    """)
+    if st.button('🔗 查看文献6', key='ref6'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkmMqgflDEGfX_A5Yjx4Q-xiYLKn013_N-_fVaL4XLk2ivGt49vFxzo7xqvlKpEm_6SGuThTg1VDCzvgM4kQcxxKn-rUE2a9LTN3l8oA6xcUute_Buq7fX1SzvBdfrUPBLVsonxkLPAmP159R3YT5VIJyhJh50gPF8Q=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    7. 廖尧. 造船厂钢板库布局优化及管理信息系统开发[D]. 大连理工大学, 2010.
+    """)
+    if st.button('🔗 查看文献7', key='ref7'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkkG2VgDMUEFhb0I-JciM9nqjO5TqhqsEysQhT_aKEjo0mf8PJIiF9NiaEC_rMMA09QrgzJltW7sxOWCr_TIcOGzJnJjfqyYOHNXY0ThG6mh9XUJx6ACIluTWfeXjo4dUYW7crvOSe5FB1fzo--vwncUjxZ19qpe3WE=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    8. 徐萍. 造船厂钢板入库作业优化及钢板管理信息系统开发[D]. 江苏科技大学, 2011.
+    """)
+    if st.button('🔗 查看文献8', key='ref8'):
+        st.write("[文献链接](https://kns.cnki.net/kcms2/article/abstract?v=7gnxONS3vkktDSJZf5E3EIJS0GJ5FguzGyw2fLeCZQ2I4Lup2mHmGPMl9MYeNjzRIXrk48KVSLwImUVIfU7nVoP6YLxeXZC5Ujvh2ennYGP9nssZ6MODWz8CZaYmcgB8oDb42VJNdGMI_2h8q0u7Rx6J3-nwEtlR4GRIaR0pT7E=&uniplatform=NZKPT)")
+
+    st.markdown("""
+    9. Wang, D., Tang, O. and Zhang, L. (2023) ‘Inventory stacking with partial information’, International Journal of Production Research, 62(1–2), pp. 586–604. doi: 10.1080/00207543.2023.2219768.
+    """)
+    if st.button('🔗 查看文献9', key='ref9'):
+        st.write("[文献链接](https://doi.org/10.1080/00207543.2023.2219768)")
+
+    st.markdown("""
+    10. Tang, L. et al. (2015) ‘Research into container reshuffling and stacking problems in container terminal yards’, IIE Transactions, 47(7), pp. 751–766. doi: 10.1080/0740817X.2014.971201.
+    """)
+    if st.button('🔗 查看文献10', key='ref10'):
+        st.write("[文献链接](https://doi.org/10.1080/0740817X.2014.971201)")

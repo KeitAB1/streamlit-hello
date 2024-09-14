@@ -535,6 +535,8 @@ if df is not None:
 
 
     class GA_with_Batch:
+        cache = {}  # 适应度缓存，避免重复计算
+
         def __init__(self, population_size, mutation_rate, crossover_rate, generations, lambda_1, lambda_2, lambda_3,
                      lambda_4, num_positions):
             self.population_size = population_size
@@ -552,6 +554,13 @@ if df is not None:
             self.convergence_data = []
 
         def fitness(self, individual):
+            # 将个体转化为元组以便在字典中使用
+            individual_tuple = tuple(individual)
+
+            # 如果在缓存中，直接返回缓存结果
+            if individual_tuple in self.cache:
+                return self.cache[individual_tuple]
+
             global heights
             temp_heights = heights.copy()
 
@@ -566,12 +575,18 @@ if df is not None:
                      self.lambda_3 * balance_penalty -
                      self.lambda_4 * space_utilization)
 
+            # 将结果存入缓存
+            self.cache[individual_tuple] = score
             return score
 
         def select(self):
-            fitness_scores = np.array([self.fitness(ind) for ind in self.population])
+            # 使用线程池并行计算适应度
+            with ThreadPoolExecutor() as executor:
+                fitness_scores = list(executor.map(self.fitness, self.population))
+
+            fitness_scores = np.array(fitness_scores)
             probabilities = np.exp(-fitness_scores / np.sum(fitness_scores))
-            probabilities /= probabilities.sum()  # Normalize to get probabilities
+            probabilities /= probabilities.sum()  # 正规化以得到概率分布
             selected_indices = np.random.choice(len(self.population), size=self.population_size, p=probabilities)
             return [self.population[i] for i in selected_indices]
 
@@ -593,11 +608,19 @@ if df is not None:
             for generation in range(self.generations):
                 new_population = []
                 selected_population = self.select()
-                for i in range(0, self.population_size, 2):
-                    parent1, parent2 = selected_population[i], selected_population[min(i + 1, self.population_size - 1)]
-                    child1, child2 = self.crossover(parent1, parent2)
-                    new_population.append(self.mutate(child1))
-                    new_population.append(self.mutate(child2))
+
+                # 使用线程池并行执行交叉和突变
+                with ThreadPoolExecutor() as executor:
+                    futures = []
+                    for i in range(0, self.population_size, 2):
+                        parent1 = selected_population[i]
+                        parent2 = selected_population[min(i + 1, self.population_size - 1)]
+                        futures.append(executor.submit(self.crossover, parent1, parent2))
+
+                    for future in futures:
+                        child1, child2 = future.result()
+                        new_population.append(self.mutate(child1))
+                        new_population.append(self.mutate(child2))
 
                 self.population = new_population
                 best_individual_gen = min(self.population, key=self.fitness)
