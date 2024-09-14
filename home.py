@@ -4,12 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 from concurrent.futures import ThreadPoolExecutor
-from sqlalchemy import create_engine  # 添加 SQLAlchemy 导入
-
-from dotenv import load_dotenv
-
-# 加载 .env 文件中的环境变量
-load_dotenv()
 
 from auxiliary import InterfaceLayout as il
 
@@ -32,22 +26,19 @@ os.makedirs(output_dir, exist_ok=True)
 os.makedirs(convergence_dir, exist_ok=True)
 os.makedirs(data_dir, exist_ok=True)
 
-# 从环境变量中读取数据库配置信息
-db_user = os.getenv('DB_USER')  # MySQL 用户名
-db_password = os.getenv('DB_PASSWORD')  # MySQL 密码
-db_host = os.getenv('DB_HOST')  # MySQL 主机
-db_port = os.getenv('DB_PORT', '3306')  # MySQL 端口，默认3306
-db_name = os.getenv('DB_NAME')  # MySQL 数据库名
-
-# 创建 MySQL 连接引擎
-engine = create_engine(f'mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}')
+# 定义保存路径为 test_data.csv
+test_data_path = os.path.join(data_dir, "test_data.csv")
 
 st.title("Steel Plate Stacking Optimization")
-# 显示图标和标题
+# # 显示图标和标题
 # icon_path = "data/introduction_src/icons/home_标题.png"
 # il.display_icon_with_header(icon_path, "Steel Plate Stacking Optimization", font_size='45px')
 
-# 获取数据集的方式
+# 获取 data 文件夹下的所有 CSV 文件
+system_data_dir = "data"  # 系统数据集目录
+available_datasets = [f for f in os.listdir(system_data_dir) if f.endswith('.csv')]
+
+# 选择数据集的方式
 data_choice = st.selectbox("Choose dataset", ("Use system dataset", "Upload your own dataset"))
 
 # 初始化 df 为 None
@@ -57,31 +48,29 @@ df = None
 if data_choice == "Upload your own dataset":
     uploaded_file = st.file_uploader("Upload your steel plate dataset (CSV)", type=["csv"])
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file)
+        # 将上传的文件保存为 test_data.csv
+        with open(test_data_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        df = pd.read_csv(test_data_path)
         st.write("Uploaded dataset:")
         st.write(df.head())
     else:
         st.warning("Please upload a dataset to proceed.")
 
-# 如果用户选择使用系统自带的数据集，通过数据库连接方式读取数据
+# 如果用户选择使用系统自带的数据集
 else:
-    # 列出数据库中可用的表
-    tables = pd.read_sql("SHOW TABLES", con=engine)
-    available_datasets = tables.iloc[:, 0].tolist()  # 获取所有表名
-
-    # 列出可用的数据集供用户选择
+    # 列出可用的数据集供用户选择，初始选择为空
     selected_dataset = st.selectbox("Select a system dataset", [""] + available_datasets)
 
     if selected_dataset and selected_dataset != "":
-        # 从数据库中读取选定的数据集
-        query = f"SELECT * FROM {selected_dataset}"
-        df = pd.read_sql(query, con=engine)
+        system_dataset_path = os.path.join(system_data_dir, selected_dataset)
+        # 复制系统数据集为 test_data.csv
+        df = pd.read_csv(system_dataset_path)
+        df.to_csv(test_data_path, index=False)
         st.write(f"Using system dataset: {selected_dataset}")
         st.write(df.head())
     else:
         st.warning("Please select a system dataset to proceed.")
-
-# 进一步的代码可放置在此，例如优化算法调用等
 
 
 
@@ -206,35 +195,10 @@ convergence_plot_placeholder = st.empty()
 # 如果 df 已经加载，进行堆垛优化分析
 if df is not None:
     # 参数配置（假设数据集结构一致）
-
-    df.columns = df.columns.str.strip()  # 去除列名中的空格
-
-
-    plates = df[['Length', 'Width', 'Thickness', 'Material_Code', 'Batch', 'Entry_Time', 'Delivery_Time']].values
+    plates = df[['Length', 'Width', 'Thickness', 'Material_Code', 'Batch', 'Entry Time', 'Delivery Time']].values
     plate_areas = plates[:, 0] * plates[:, 1]
     num_plates = len(plates)
     batches = df['Batch'].values
-
-
-    # 确保列存在且格式正确
-    if 'Entry_Time' in df.columns and 'Delivery_Time' in df.columns:
-        try:
-            # 检查并转换 'Entry_Time' 和 'Delivery_Time' 列为日期格式
-            df['Entry_Time'] = pd.to_datetime(df['Entry_Time'], errors='coerce')
-            df['Delivery_Time'] = pd.to_datetime(df['Delivery_Time'], errors='coerce')
-
-            # 检查是否有未能成功转换的日期
-            if df['Entry_Time'].isnull().any() or df['Delivery_Time'].isnull().any():
-                st.error("Some 'Entry_Time' or 'Delivery_Time' values couldn't be converted to datetime format.")
-            else:
-                # 计算交货时间
-                delivery_times = (df['Delivery_Time'] - df['Entry_Time']).dt.days.values
-                st.write("Delivery times calculated successfully.")
-                # 其他处理逻辑...
-        except Exception as e:
-            st.error(f"Error converting date columns: {e}")
-    else:
-        st.error("The required columns 'Entry_Time' or 'Delivery_Time' are missing in the dataset.")
 
     # 库区布局和尺寸
     area_positions = {
@@ -284,10 +248,12 @@ if df is not None:
     inbound_point = (41500, 3000)  # 入库口坐标
     outbound_point = (41500, 38000)  # 出库口坐标
 
-    # #  将交货时间从字符串转换为数值
-    # df['Delivery Time'] = pd.to_datetime(df['Delivery_Time'])
-    # df['Entry Time'] = pd.to_datetime(df['Entry_Time'])
-    # delivery_times = (df['Delivery_Time'] - df['Entry_Time']).dt.days.values
+    #  将交货时间从字符串转换为数值
+    df['Delivery Time'] = pd.to_datetime(df['Delivery Time'])
+    df['Entry Time'] = pd.to_datetime(df['Entry Time'])
+    delivery_times = (df['Delivery Time'] - df['Entry Time']).dt.days.values
+
+
 
 
     # 目标函数1：最小化翻垛次数
@@ -2565,4 +2531,3 @@ if df is not None:
         result_df.to_csv(output_file_heights, index=False)
 
         # st.success(f"Stacking statistics saved to {output_file_heights}")
-
