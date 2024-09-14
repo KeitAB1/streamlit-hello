@@ -63,6 +63,7 @@ render_button("项目图片展示", "图片展示")
 render_button("项目视频展示", "视频展示")
 render_button("参考文献说明", "参考文献")
 
+
 # 根据 session state 中的值展示不同的部分内容
 if st.session_state.section == '功能介绍':
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>系统功能介绍</h3>", unsafe_allow_html=True)
@@ -249,7 +250,6 @@ if st.session_state.section == '功能介绍':
 
     这个公式的目标是最大化空间利用率，即尽可能地利用堆位的可用空间，确保钢板尽量紧密堆叠在可用的堆垛空间中。
     """)
-
 
 elif st.session_state.section == '图片展示':
     st.markdown("<h3 style='text-align: left; font-weight: bold;'>项目图片展示</h3>", unsafe_allow_html=True)
