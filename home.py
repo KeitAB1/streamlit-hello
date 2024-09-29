@@ -26,6 +26,7 @@ logging.basicConfig(filename="optimization.log", level=logging.INFO, format="%(a
 # Streamlit 页面配置
 st.set_page_config(page_title="Steel Plate Stacking Optimization", page_icon="⚙")
 
+
 # 全局变量用于存储结果
 heights = None
 
