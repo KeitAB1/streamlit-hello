@@ -12,7 +12,7 @@ from optimization_utils import evaluate_parallel, evaluate_with_cache, run_distr
 from optimization_utils import apply_adaptive_pso, apply_adaptive_sa, apply_adaptive_ga, apply_adaptive_coea, apply_adaptive_eda
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import logging  # 日志模块
+# import logging  # 日志模块
 from utils import save_convergence_history
 
 
@@ -21,7 +21,7 @@ from constants import OUTPUT_DIR, CONVERGENCE_DIR, DATA_DIR, TEST_DATA_PATH
 from constants import DEFAULT_AREA_POSITIONS, DEFAULT_STACK_DIMENSIONS, HORIZONTAL_SPEED, VERTICAL_SPEED, STACK_FLIP_TIME_PER_PLATE, INBOUND_POINT, OUTBOUND_POINT, Dki
 
 # 日志配置
-logging.basicConfig(filename="optimization.log", level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
+# logging.basicConfig(filename="optimization.log", level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 
 # Streamlit 页面配置
 st.set_page_config(page_title="Steel Plate Stacking Optimization", page_icon="⚙")
@@ -379,10 +379,14 @@ if df is not None:
                     # 更新收敛数据
                     self.convergence_data.append([iteration + 1, self.best_score])
                     self.update_convergence_plot(iteration + 1)
-                    logging.info(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.best_score}')
+                    # logging.info(f'Iteration {iteration + 1}/{self.max_iter}, Best Score: {self.best_score}')
 
                 time_elapsed = time.time() - self.start_time
                 self.save_metrics(time_elapsed)
+
+                # 优化结束后，保存历史收敛数据
+                history_data_dir = os.path.join("result/History_ConvergenceData", self.dataset_name, "PSO")
+                save_convergence_history(self.convergence_data, "PSO", self.dataset_name, history_data_dir)
 
         def evaluate_particle(self, particle):
             combined_movement_turnover_penalty = self.objectives.minimize_stack_movements_and_turnover(
@@ -608,6 +612,10 @@ if df is not None:
 
                 self.save_metrics(metrics)
 
+                # 优化结束后，保存历史收敛数据
+                history_data_dir = os.path.join("result/History_ConvergenceData", self.dataset_name, "GA")
+                save_convergence_history(self.convergence_data, "GA", self.dataset_name, history_data_dir)
+
         def record_adaptive_params(self):
             self.adaptive_param_data.append(
                 {'mutation_rate': self.mutation_rate, 'crossover_rate': self.crossover_rate})
@@ -673,9 +681,6 @@ if df is not None:
             metrics_df.to_csv(file_path, index=False)
 
 
-
-
-
     class SA_with_Batch:
         def __init__(self, initial_temperature, cooling_rate, min_temperature, max_iterations, lambda_1, lambda_2,
                      lambda_3, lambda_4, num_positions, dataset_name, objectives, use_adaptive):
@@ -722,7 +727,7 @@ if df is not None:
                          self.lambda_4 * space_utilization)
                 return score
             except Exception as e:
-                logging.error(f"Error in evaluation: {e}")
+                # logging.error(f"Error in evaluation: {e}")
                 return np.inf
 
         def optimize(self):
@@ -787,8 +792,8 @@ if df is not None:
                     self.temperature_data.append(current_temperature)
 
                     self.update_convergence_plot(iteration + 1)
-                    logging.info(
-                        f"Iteration {iteration + 1}/{self.max_iterations}, Best Score: {self.best_score}, Temperature: {current_temperature}")
+                    # logging.info(
+                    #     f"Iteration {iteration + 1}/{self.max_iterations}, Best Score: {self.best_score}, Temperature: {current_temperature}")
 
                 st.success("Optimization complete!")
 
@@ -948,6 +953,10 @@ if df is not None:
                 time_elapsed = time.time() - self.start_time
                 self.update_final_heights()
                 self.save_performance_metrics(time_elapsed)
+
+                # 优化结束后，保存历史收敛数据
+                history_data_dir = os.path.join("result/History_ConvergenceData", self.dataset_name, "DE")
+                save_convergence_history(self.convergence_data, "DE", self.dataset_name, history_data_dir)
 
         def calculate_fitness(self, individual):
             # 计算个体的适应度得分
@@ -1265,6 +1274,10 @@ if df is not None:
                 time_elapsed = time.time() - self.start_time
                 self.save_performance_metrics(time_elapsed)
 
+                # 优化结束后，保存历史收敛数据
+                history_data_dir = os.path.join("result/History_ConvergenceData", self.dataset_name, "CoEA")
+                save_convergence_history(self.convergence_data, "CoEA", self.dataset_name, history_data_dir)
+
         def exchange_subpopulations(self):
             exchange_size = self.population_size // 10  # 假设交换10%的个体
             for i in range(exchange_size):
@@ -1427,6 +1440,10 @@ if df is not None:
 
                 # 更新最终的堆垛高度
                 self.update_final_heights()
+
+                # 优化结束后，保存历史收敛数据
+                history_data_dir = os.path.join("result/History_ConvergenceData", self.dataset_name, "EDA")
+                save_convergence_history(self.convergence_data, "EDA", self.dataset_name, history_data_dir)
 
         def estimate_distribution(self):
             # 估计种群的概率分布
@@ -1625,6 +1642,10 @@ if df is not None:
                 self.update_final_heights()
                 time_elapsed = time.time() - self.start_time  # 记录总时间
                 self.save_performance_metrics(time_elapsed)
+
+                # 优化结束后，保存历史收敛数据
+                history_data_dir = os.path.join("result/History_ConvergenceData", self.dataset_name, "ACO")
+                save_convergence_history(self.convergence_data, "ACO", self.dataset_name, history_data_dir)
 
         def construct_solution(self):
             solution = []
