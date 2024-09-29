@@ -10,3 +10,8 @@ Pillow
 opencv-python-headless
 pymysql
 python-dotenv
+seaborn
+easyocr
+langchain
+imagehash
+dask
