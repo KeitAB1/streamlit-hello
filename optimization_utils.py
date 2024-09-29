@@ -7,6 +7,7 @@ import dask
 from dask import delayed
 
 def apply_adaptive_eda(mutation_rate, crossover_rate, best_score, use_adaptive):
+
     if not use_adaptive:
         return mutation_rate, crossover_rate
 
