@@ -95,6 +95,7 @@ if st.session_state["show_stack_config"]:
     positions_df = pd.DataFrame(area_positions_data)
     st.table(positions_df)
 
+
     # 堆叠尺寸信息表格
     st.write("### Current Stack Dimensions")
     stack_dimensions_data = []
