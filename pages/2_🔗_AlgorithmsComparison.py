@@ -46,7 +46,10 @@ else:
         dataset_dir = os.path.join(history_data_dir, selected_dataset)
         available_algorithms = [f for f in os.listdir(dataset_dir) if os.path.isdir(os.path.join(dataset_dir, f))]
 
-        selected_algorithm = st.sidebar.selectbox("Select Algorithm", available_algorithms)
+        # 默认选择 "SA" 算法，如果存在
+        default_algorithm = "SA" if "SA" in available_algorithms else available_algorithms[0]
+        selected_algorithm = st.sidebar.selectbox("Select Algorithm", available_algorithms, index=available_algorithms.index(default_algorithm))
+
         algorithm_history_dir = os.path.join(dataset_dir, selected_algorithm)
         available_history_files = [f for f in os.listdir(algorithm_history_dir) if f.endswith('.csv')]
 
@@ -265,6 +268,7 @@ else:
 
                     # 显示 DataFrame
                     st.table(final_scores_df)
+
 
 
 
