@@ -83,13 +83,32 @@ if st.button("View/Hide Current Stack Configuration"):
     st.session_state["show_stack_config"] = not st.session_state["show_stack_config"]
 
 if st.session_state["show_stack_config"]:
+    # 堆叠区域位置信息表格
     st.write("### Current Area Positions")
-    for area, positions in area_positions.items():
-        st.write(f"Area {area + 1} Stack Positions: {positions}")
+    area_positions_data = []
+    for area, positions in DEFAULT_AREA_POSITIONS.items():
+        area_positions_data.append({
+            "Area": f"Area {area + 1}",
+            "Positions": str(positions)
+        })
 
+    positions_df = pd.DataFrame(area_positions_data)
+    st.table(positions_df)
+
+    # 堆叠尺寸信息表格
     st.write("### Current Stack Dimensions")
-    for area, dimensions in stack_dimensions.items():
-        st.write(f"Area {area + 1} Stack Dimensions (LxW in mm): {dimensions}")
+    stack_dimensions_data = []
+    for area, dimensions in DEFAULT_STACK_DIMENSIONS.items():
+        for idx, (length, width) in enumerate(dimensions):
+            stack_dimensions_data.append({
+                "Area": f"Area {area + 1}",
+                "Stack": f"Stack {idx + 1}",
+                "Length (mm)": length,
+                "Width (mm)": width
+            })
+
+    dimensions_df = pd.DataFrame(stack_dimensions_data)
+    st.table(dimensions_df)
 
 # 数据集选择
 data_choice = st.selectbox("Choose dataset", ("Use system dataset", "Upload your own dataset"))

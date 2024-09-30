@@ -63,53 +63,68 @@ else:
             if selected_history_files:
                 st.subheader(f"Convergence History: {selected_algorithm}")
 
-                fig = go.Figure()
-
-
-                # 提取文件名中的日期和时间戳作为图例
-                def extract_timestamp_from_filename(file_name):
-                    parts = file_name.split('_')
-                    if len(parts) >= 5:
-                        date_part = parts[-2]  # YYYYMMDD
-                        time_part = parts[-1].replace('.csv', '')  # HHMMSS
-                        return f"{date_part}_{time_part}"
-                    return file_name
-
-
-                # 读取每个历史文件并绘制收敛曲线
-                all_history_data = []
+                # 读取每个历史文件并获取最大轮数
+                max_iters_in_files = []
                 for history_file in selected_history_files:
                     history_file_path = os.path.join(algorithm_history_dir, history_file)
-
                     try:
                         history_df = pd.read_csv(history_file_path)
-                        all_history_data.append(history_df['Best Score'].values)
-
-                        # 提取文件名末尾的时间戳作为图例
-                        timestamp = extract_timestamp_from_filename(history_file)
-
-                        # 绘制每个历史文件的收敛曲线，使用时间戳作为图例名称
-                        fig.add_trace(go.Scatter(x=history_df['Iteration'], y=history_df['Best Score'],
-                                                 mode='lines+markers', name=f"{timestamp}"))
-
+                        max_iters_in_files.append(history_df['Iteration'].max())
                     except Exception as e:
                         st.error(f"Error loading history data from {history_file}: {e}")
 
-                # 配置图表样式
-                fig.update_layout(
-                    title=f"Convergence Curves - {selected_algorithm}",
-                    xaxis_title="Iterations",
-                    yaxis_title="Best Score"
-                )
-                st.plotly_chart(fig)
+                # 如果成功读取了历史数据，添加滑动条来选择显示的最大轮数
+                if max_iters_in_files:
+                    max_iterations = min(max_iters_in_files)  # 选择最小的最大轮数，以避免越界
+                    max_iter_display = st.sidebar.slider("Max Iterations to Display", min_value=1, max_value=max_iterations, value=10)
 
-                # 调用函数计算统计信息
-                if all_history_data:
-                    statistics_df = calculate_statistics(all_history_data, selected_history_files)
+                    fig = go.Figure()
 
-                    # 显示统计信息表格
-                    st.subheader("Statistics Comparison")
-                    st.dataframe(statistics_df)
+                    # 提取文件名中的日期和时间戳作为图例
+                    def extract_timestamp_from_filename(file_name):
+                        parts = file_name.split('_')
+                        if len(parts) >= 5:
+                            date_part = parts[-2]  # YYYYMMDD
+                            time_part = parts[-1].replace('.csv', '')  # HHMMSS
+                            return f"{date_part}_{time_part}"
+                        return file_name
+
+                    # 读取每个历史文件并绘制收敛曲线
+                    all_history_data = []
+                    for history_file in selected_history_files:
+                        history_file_path = os.path.join(algorithm_history_dir, history_file)
+
+                        try:
+                            history_df = pd.read_csv(history_file_path)
+                            # 只显示用户选择的最大轮数数据
+                            truncated_df = history_df[history_df['Iteration'] <= max_iter_display]
+                            all_history_data.append(truncated_df['Best Score'].values)
+
+                            # 提取文件名末尾的时间戳作为图例
+                            timestamp = extract_timestamp_from_filename(history_file)
+
+                            # 绘制每个历史文件的收敛曲线，使用时间戳作为图例名称
+                            fig.add_trace(go.Scatter(x=truncated_df['Iteration'], y=truncated_df['Best Score'],
+                                                     mode='lines+markers', name=f"{timestamp}"))
+
+                        except Exception as e:
+                            st.error(f"Error loading history data from {history_file}: {e}")
+
+                    # 配置图表样式
+                    fig.update_layout(
+                        title=f"Convergence Curves - {selected_algorithm}",
+                        xaxis_title="Iterations",
+                        yaxis_title="Best Score"
+                    )
+                    st.plotly_chart(fig)
+
+                    # 调用函数计算统计信息
+                    if all_history_data:
+                        statistics_df = calculate_statistics(all_history_data, selected_history_files)
+
+                        # 显示统计信息表格
+                        st.subheader("Statistics Comparison")
+                        st.dataframe(statistics_df)
 
     else:
         # 获取所选数据集下的所有 CSV 文件
@@ -250,6 +265,8 @@ else:
 
                     # 显示 DataFrame
                     st.table(final_scores_df)
+
+
 
 
 
